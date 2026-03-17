@@ -32,7 +32,7 @@ export default async function handler(req, res) {
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "llama3-8b-8192", // Model nhanh và free
+                model: "llama-3.3-70b-versatile", // Model nhanh và free
                 messages: messages,
                 temperature: 0.7,
                 max_tokens: 1024
