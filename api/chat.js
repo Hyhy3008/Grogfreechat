@@ -13,46 +13,38 @@ export default async function handler(req, res) {
         const { message, history, currentSummary } = req.body;
 
         // ======================================================
-        // BƯỚC 1: CẮT GỌN LỊCH SỬ
+        // BƯỚC 1: CHUẨN BỊ DỮ LIỆU (CẮT GỌN)
         // ======================================================
-        // Chỉ lấy 2 tin nhắn gần nhất để AI tập trung vào hiện tại
+
+        // Yêu cầu của bạn: Chỉ lấy đúng 2 tin nhắn gần nhất
+        // Việc này giúp gói tin siêu nhẹ, phản hồi siêu nhanh
         const tinyHistory = (history || []).slice(-2); 
 
         // ======================================================
-        // BƯỚC 2: TẠO "BỘ NÃO" SUY LUẬN & HỎI LẠI (QUAN TRỌNG)
+        // BƯỚC 2: TẠO "BỘ NÃO" SUY LUẬN CHO GROQ
         // ======================================================
 
         const systemPrompt = `
-        BẠN LÀ TRỢ LÝ AI CHUYÊN NGHIỆP (Llama-3 70B).
+        BẠN LÀ TRỢ LÝ AI CAO CẤP (Llama-3 70B).
         
-        NHIỆM VỤ: Trả lời User dựa trên dữ liệu dưới đây.
+        NHIỆM VỤ: Trả lời câu hỏi của người dùng dựa trên sự SUY LUẬN từ 2 nguồn dữ liệu dưới đây.
 
-        --- DỮ LIỆU 1: BỐI CẢNH DÀI HẠN (Ký ức về User) ---
-        ${currentSummary ? currentSummary : "Chưa có thông tin."}
+        --- NGUỒN 1: BỐI CẢNH DÀI HẠN (Tóm tắt về User) ---
+        ${currentSummary ? currentSummary : "Chưa có thông tin gì."}
         ---------------------------------------------------
 
-        --- DỮ LIỆU 2: BỐI CẢNH NGẮN HẠN (Hội thoại vừa xong) ---
+        --- NGUỒN 2: BỐI CẢNH NGẮN HẠN (Hội thoại vừa xảy ra) ---
         (Được cung cấp ngay sau đây)
         -------------------------------------------------------
 
-        QUY TẮC XỬ LÝ (TUÂN THỦ TUYỆT ĐỐI):
-        1. LIÊN KẾT: Trước khi trả lời, hãy rà soát "Bối cảnh dài hạn" xem User đang nói về chủ đề gì (ví dụ: User hỏi "Nó giá bao nhiêu?" -> Kiểm tra xem trước đó có bàn về iPhone hay xe hơi không).
-        
-        2. HỎI LẠI NẾU MƠ HỒ (QUAN TRỌNG): 
-           - Nếu câu hỏi quá ngắn, thiếu chủ ngữ, hoặc không khớp với bất kỳ dữ liệu nào trong ký ức.
-           - TUYỆT ĐỐI KHÔNG ĐOÁN MÒ.
-           - Hãy hỏi lại User để làm rõ.
-           - Ví dụ: User hỏi "Mua ở đâu?", nhưng bạn không biết mua cái gì -> Hãy hỏi: "Dạ, bạn đang muốn hỏi mua sản phẩm nào ạ?"
-        
-        3. ĐƯA RA GỢI Ý:
-           - Nếu thấy User đang phân vân, hãy chủ động đưa ra các lựa chọn dựa trên những gì bạn biết về họ.
-           - Ví dụ: "Dựa trên sở thích công nghệ của bạn, tôi gợi ý iPhone 15 hoặc Samsung S24."
-
-        4. Phong cách: Thân thiện, ngắn gọn, Tiếng Việt tự nhiên.
+        QUY TẮC SUY LUẬN:
+        1. LIÊN KẾT DỮ LIỆU: Nếu User hỏi những câu cộc lốc như "Cái đó thế nào?", "Ông ấy bao nhiêu tuổi?", hãy nhìn vào "Bối cảnh dài hạn" để biết "Cái đó" hay "Ông ấy" là ai.
+        2. ƯU TIÊN THÔNG TIN MỚI: Nếu thông tin trong "Ngắn hạn" mâu thuẫn với "Dài hạn", hãy ưu tiên thông tin mới nhất.
+        3. TRẢ LỜI: Ngắn gọn, đi thẳng vào vấn đề, văn phong tự nhiên tiếng Việt.
         `;
 
         // ======================================================
-        // BƯỚC 3: GỌI GROQ
+        // BƯỚC 3: GỌI GROQ (TRẢ LỜI)
         // ======================================================
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -64,11 +56,11 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: systemPrompt }, // Prompt đã nâng cấp
-                    ...tinyHistory,                            
-                    { role: "user", content: message }         
+                    { role: "system", content: systemPrompt }, // Bộ não suy luận
+                    ...tinyHistory,                            // 2 câu gần nhất
+                    { role: "user", content: message }         // Câu hỏi hiện tại
                 ],
-                temperature: 0.6, // Giữ mức 0.6 để AI suy luận logic
+                temperature: 0.6, // Độ sáng tạo vừa phải để suy luận logic
                 max_tokens: 1500
             })
         });
@@ -80,16 +72,21 @@ export default async function handler(req, res) {
         // BƯỚC 4: GỌI CLOUDFLARE (CẬP NHẬT TÓM TẮT)
         // ======================================================
         
+        // Nhiệm vụ của Cloudflare là đọc đoạn chat vừa xong và update vào sổ tay
         const updateMemoryPrompt = `
         Nhiệm vụ: Cập nhật hồ sơ người dùng (Memory).
         
         Dữ liệu hiện tại: "${currentSummary || ''}"
-        Hội thoại mới: User: "${message}" -> AI: "${aiReply}"
+        
+        Hội thoại mới nhất:
+        User: "${message}"
+        AI: "${aiReply}"
         
         Yêu cầu:
-        1. Nếu AI phải hỏi lại User để làm rõ ý (ví dụ: "Ý bạn là gì?"), nghĩa là chưa có thông tin mới -> GIỮ NGUYÊN bản tóm tắt cũ.
-        2. Nếu User cung cấp thông tin cụ thể -> CẬP NHẬT vào tóm tắt.
-        3. Trả về đoạn văn bản tóm tắt ngắn gọn nhất.
+        1. Đọc hội thoại mới, trích xuất thông tin quan trọng (Tên, nghề, sở thích, sự kiện...).
+        2. Gộp thông tin mới vào Dữ liệu hiện tại.
+        3. Loại bỏ các thông tin thừa thãi, lặp lại.
+        4. Trả về đoạn văn bản tóm tắt hoàn chỉnh.
         `;
 
         const cfRes = await fetch(CF_WORKER_URL, {
@@ -101,7 +98,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 prompt: "Update Memory", 
                 systemPrompt: updateMemoryPrompt, 
-                history: [] 
+                history: [] // Không cần gửi history cho worker tóm tắt
             })
         });
 
