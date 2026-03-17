@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Groq AI Chat</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* GIAO DIỆN APP CHAT HIỆN ĐẠI */
+        :root { --primary-color: #f55036; --bg-color: #f2f2f7; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); height: 100dvh; width: 100vw; display: flex; justify-content: center; overflow: hidden; }
+        
+        .app-container { width: 100%; max-width: 600px; height: 100%; background: white; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        
+        /* Header */
+        .header { padding: 15px; background: rgba(255, 255, 255, 0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #333; height: 60px; z-index: 10; }
+        
+        /* Chat Area */
+        .chat-area { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+        .message { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.4; word-wrap: break-word; }
+        .user { align-self: flex-end; background: #007AFF; color: white; border-bottom-right-radius: 4px; }
+        .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
+        
+        /* Typing */
+        .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; width: fit-content; margin-bottom: 10px; border: 1px solid #e5e5ea; }
+        .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
+        .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+        /* Input */
+        .input-area { padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; display: flex; align-items: center; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 15px); }
+        input { flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #c6c6c8; font-size: 16px; outline: none; background: #f9f9f9; }
+        input:focus { border-color: var(--primary-color); background: white; }
+        button { width: 45px; height: 45px; border-radius: 50%; border: none; background: var(--primary-color); color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        button:disabled { background: #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header"><i class="fas fa-bolt" style="color: #f55036; margin-right: 8px;"></i> Groq AI Chat</div>
+    <div class="chat-area" id="chatBox">
+        <div class="message ai">Xin chào! Tôi là Groq siêu tốc.</div>
+        <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+        <button id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<script>
+    // --- CẤU HÌNH GỌI API VERCEL ---
+    const API_URL = "/api/chat"; 
+    // -------------------------------
+
+    const chatBox = document.getElementById('chatBox');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const loading = document.getElementById('loading');
+    let history = []; // Lưu lịch sử chat
+
+    userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        appendMessage(text, 'user');
+        userInput.value = '';
+        userInput.blur(); // Ẩn bàn phím
+        toggleInput(false);
+        loading.style.display = 'block';
+        scrollToBottom();
+
+        try {
+            // Gọi đến Backend Vercel (file api/chat.js)
+            const res = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message: text,
+                    history: history
+                })
+            });
+
+            const data = await res.json();
+            
+            if (data.error) throw new Error(data.error);
+            const aiText = data.response || "Lỗi phản hồi.";
+
+            loading.style.display = 'none';
+            appendMessage(aiText, 'ai');
+            history.push({ role: "user", content: text });
+            history.push({ role: "assistant", content: aiText });
+
+        } catch (error) {
+            loading.style.display = 'none';
+            appendMessage("Lỗi: " + error.message, 'ai');
+        } finally {
+            toggleInput(true);
+        }
+    }
+
+    function appendMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerHTML = text.replace(/\n/g, "<br>");
+        chatBox.insertBefore(div, loading);
+        scrollToBottom();
+    }
+
+    function toggleInput(enabled) {
+        userInput.disabled = !enabled;
+        sendBtn.disabled = !enabled;
+    }
+
+    function scrollToBottom() {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
