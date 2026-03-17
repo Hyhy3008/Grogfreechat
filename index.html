@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI Chatbot</title>
+    <!-- Icon -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
@@ -16,7 +17,7 @@
             background: var(--bg-color); 
             height: 100dvh; width: 100vw; 
             display: flex; justify-content: center; 
-            overflow: hidden; 
+            overflow: hidden; /* Chặn cuộn trang */
         }
         
         .app-container { 
@@ -25,21 +26,23 @@
             position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); 
         }
         
-        /* Header đơn giản */
+        /* HEADER SẠCH SẼ - CHỈ CÓ TIÊU ĐỀ */
         .header { 
-            padding: 15px; background: white; border-bottom: 1px solid #e5e5ea; 
+            padding: 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; 
             display: flex; align-items: center; justify-content: center; 
-            font-weight: 600; color: #333; height: 60px; z-index: 10; 
+            font-weight: 600; font-size: 18px; color: #333; height: 60px; z-index: 10; 
         }
         
-        /* Khu vực Chat */
+        /* KHUNG CHAT */
         .chat-area { 
             flex: 1; padding: 15px; overflow-y: auto; 
             background: var(--bg-color); 
             display: flex; flex-direction: column; gap: 12px; 
             scroll-behavior: smooth; 
+            -webkit-overflow-scrolling: touch;
         }
         
+        /* TIN NHẮN */
         .message { 
             max-width: 80%; padding: 10px 16px; border-radius: 18px; 
             font-size: 16px; line-height: 1.5; word-wrap: break-word; 
@@ -47,13 +50,13 @@
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
         
-        /* Loading */
-        .typing { display: none; align-self: flex-start; background: white; padding: 8px 15px; border-radius: 18px; margin-bottom: 10px; border: 1px solid #e5e5ea; }
+        /* LOADING DOTS */
+        .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-        /* Input Area */
+        /* INPUT AREA */
         .input-area { 
             padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; 
             display: flex; align-items: center; gap: 10px; 
@@ -68,15 +71,21 @@
 <body>
 
 <div class="app-container">
+    <!-- Header chỉ có tên App -->
     <div class="header">
         <i class="fas fa-robot" style="margin-right: 8px; color: #0084ff;"></i> Trợ Lý AI
     </div>
 
+    <!-- Khung chat -->
     <div class="chat-area" id="chatBox">
         <div class="message ai">Xin chào! Mình có thể giúp gì cho bạn?</div>
-        <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <!-- Loading -->
+        <div class="typing" id="loading">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </div>
     </div>
 
+    <!-- Nhập liệu -->
     <div class="input-area">
         <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
         <button id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
@@ -85,7 +94,7 @@
 
 <script>
     // --- CẤU HÌNH ---
-    const API_URL = "/api/chat"; // Gọi API Backend Vercel
+    const API_URL = "/api/chat"; 
     // ----------------
 
     const chatBox = document.getElementById('chatBox');
@@ -93,13 +102,12 @@
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
     
-    // --- BỘ NHỚ ẨN (Không hiển thị ra giao diện) ---
+    // --- BỘ NHỚ ẨN (SECRET MEMORY) ---
+    // Biến này lưu trữ trong RAM của trình duyệt, User không thấy
     let history = []; 
     let currentSummary = ""; 
 
-    // Tự động focus
     userInput.focus();
-
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
     async function sendMessage() {
@@ -116,14 +124,14 @@
         scrollToBottom();
 
         try {
-            // 2. Gửi dữ liệu lên Server (Kèm bộ nhớ ẩn)
+            // 2. Gửi dữ liệu ngầm lên Server
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: text,
                     history: history,
-                    currentSummary: currentSummary // Gửi tóm tắt cũ đi
+                    currentSummary: currentSummary // <--- Gửi đi âm thầm
                 })
             });
 
@@ -131,17 +139,15 @@
             
             if (data.error) throw new Error(data.error);
 
-            // 3. Hiện câu trả lời AI
+            // 3. Hiện câu trả lời
             loading.style.display = 'none';
             const aiText = data.response || "Không có phản hồi.";
             appendMessage(aiText, 'ai');
 
-            // 4. CẬP NHẬT BỘ NHỚ ẨN (Silent Update)
-            // Người dùng không thấy, nhưng biến này đã thay đổi
+            // 4. CẬP NHẬT BỘ NHỚ NGẦM (QUAN TRỌNG)
             if (data.newSummary) {
-                currentSummary = data.newSummary;
-                // Nếu muốn debug thì bật dòng dưới, còn user thường sẽ không thấy gì
-                // console.log("Memory Updated:", currentSummary); 
+                currentSummary = data.newSummary; 
+                // Tuyệt đối không in ra màn hình
             }
 
             // Lưu history hiển thị
@@ -150,7 +156,7 @@
 
         } catch (error) {
             loading.style.display = 'none';
-            appendMessage("Lỗi kết nối: " + error.message, 'ai');
+            appendMessage("Lỗi kết nối", 'ai');
         } finally {
             toggleInput(true);
         }
