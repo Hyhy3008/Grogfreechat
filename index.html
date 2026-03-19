@@ -7,7 +7,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
-        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; }
+        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; --success-color: #28a745; }
         * { box-sizing: border-box; }
         
         body { 
@@ -34,63 +34,43 @@
         .header-title { font-weight: 600; font-size: 16px; color: #333; display: flex; align-items: center; gap: 8px; }
         .reset-btn { background: none; border: none; cursor: pointer; color: var(--danger-color); font-size: 16px; padding: 8px; }
 
-        /* TABS (THANH CHUYỂN ĐỔI) */
-        .tabs {
-            display: flex; background: white; border-bottom: 1px solid #e5e5ea;
-        }
-        .tab-btn {
-            flex: 1; padding: 12px; border: none; background: none;
-            font-weight: 600; color: #888; cursor: pointer;
-            border-bottom: 2px solid transparent; transition: 0.3s;
-        }
-        .tab-btn.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-        }
+        /* TABS */
+        .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; }
+        .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
 
-        /* KHUNG CHAT & KHUNG MEMORY */
-        .content-area {
-            flex: 1; position: relative; overflow: hidden;
-        }
+        /* PANELS */
+        .content-area { flex: 1; position: relative; overflow: hidden; }
+        #chatPanel { height: 100%; display: flex; flex-direction: column; }
+        #memoryPanel { height: 100%; padding: 20px; overflow-y: auto; background: #fff; display: none; }
 
-        /* Panel Chat */
-        #chatPanel {
-            height: 100%; display: flex; flex-direction: column;
+        /* MEMORY CONTROLS (MỚI) */
+        .mem-controls {
+            background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px;
         }
-        .chat-list {
-            flex: 1; padding: 15px; overflow-y: auto; 
-            background: var(--bg-color); 
-            display: flex; flex-direction: column; gap: 12px;
-            scroll-behavior: smooth;
-        }
-
-        /* Panel Memory */
-        #memoryPanel {
-            height: 100%; padding: 20px; overflow-y: auto;
-            background: #fff; display: none; /* Ẩn mặc định */
-        }
+        .mem-stat { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #555; }
+        .mem-input-group { display: flex; align-items: center; gap: 10px; }
+        .mem-input-group input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+        .mem-input-group label { font-size: 14px; font-weight: 600; }
+        
         .memory-content {
             background: #f8f9fa; border: 1px solid #e9ecef;
             padding: 15px; border-radius: 8px;
-            font-family: monospace; font-size: 14px; line-height: 1.6;
-            white-space: pre-wrap; /* Giữ nguyên xuống dòng */
-            color: #333;
+            font-family: monospace; font-size: 13px; line-height: 1.6;
+            white-space: pre-wrap; color: #333;
         }
-        .empty-mem { color: #999; font-style: italic; text-align: center; margin-top: 20px; }
 
-        /* TIN NHẮN */
+        /* CHAT UI */
+        .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
         .message { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-wrap: break-word; }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
-        .system { align-self: center; color: #888; font-size: 13px; font-style: italic; margin: 10px 0; }
-
-        /* LOADING */
+        
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-        /* INPUT */
         .input-area { padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; display: flex; align-items: center; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 15px); }
         input { flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #c6c6c8; font-size: 16px; outline: none; background: #f9f9f9; }
         input:focus { border-color: var(--primary-color); background: white; }
@@ -106,31 +86,42 @@
         <button class="reset-btn" onclick="resetChat()"><i class="fas fa-trash-alt"></i></button>
     </div>
 
-    <!-- THANH TAB -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
-        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Bộ Nhớ</button>
+        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Cài đặt Bộ Nhớ</button>
     </div>
 
     <div class="content-area">
-        <!-- PANEL 1: CHAT -->
+        <!-- TAB CHAT -->
         <div id="chatPanel">
             <div class="chat-list" id="chatBox">
                 <div class="message ai">Xin chào!</div>
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
-            
             <div class="input-area">
                 <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
                 <button id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
 
-        <!-- PANEL 2: MEMORY (TÓM TẮT) -->
+        <!-- TAB MEMORY (CÓ CÀI ĐẶT) -->
         <div id="memoryPanel">
-            <h3 style="margin-top:0; color:#333;">Dữ liệu AI đang nhớ:</h3>
+            <!-- Khu vực điều khiển giới hạn -->
+            <div class="mem-controls">
+                <div class="mem-stat">
+                    <span>Độ dài hiện tại: <b id="currLen" style="color:var(--success-color)">0</b> ký tự</span>
+                </div>
+                <div class="mem-input-group">
+                    <label>Giới hạn (Max):</label>
+                    <input type="number" id="memLimitInput" value="2000" min="500" step="100">
+                    <small style="color:#666">ký tự</small>
+                </div>
+                <small style="display:block; margin-top:5px; color:#888;">*AI sẽ tự động tóm tắt ngắn lại khi vượt quá giới hạn này.</small>
+            </div>
+
+            <h3 style="margin-top:0; color:#333; font-size:14px;">Nội dung bộ nhớ:</h3>
             <div id="memoryDisplay" class="memory-content">
-                <div class="empty-mem">Chưa có thông tin gì...</div>
+                <div style="color:#999; font-style:italic;">Chưa có dữ liệu...</div>
             </div>
         </div>
     </div>
@@ -143,6 +134,8 @@
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
     const memoryDisplay = document.getElementById('memoryDisplay');
+    const currLen = document.getElementById('currLen');
+    const memLimitInput = document.getElementById('memLimitInput');
     
     let history = []; 
     let currentSummary = ""; 
@@ -150,7 +143,6 @@
     userInput.focus();
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
-    // --- CHỨC NĂNG CHUYỂN TAB ---
     function switchTab(tabName) {
         if (tabName === 'chat') {
             document.getElementById('chatPanel').style.display = 'flex';
@@ -165,24 +157,29 @@
         }
     }
 
-    // --- HÀM CẬP NHẬT GIAO DIỆN BỘ NHỚ ---
     function updateMemoryUI(text) {
+        const len = text ? text.length : 0;
+        currLen.innerText = len;
+        
+        // Đổi màu cảnh báo nếu gần đầy
+        const limit = parseInt(memLimitInput.value) || 2000;
+        if (len > limit) currLen.style.color = "red";
+        else if (len > limit * 0.8) currLen.style.color = "orange";
+        else currLen.style.color = "var(--success-color)";
+
         if (!text) {
-            memoryDisplay.innerHTML = '<div class="empty-mem">Chưa có thông tin gì...</div>';
+            memoryDisplay.innerHTML = '<div style="color:#999; font-style:italic;">Chưa có dữ liệu...</div>';
         } else {
-            // Xóa cũ, điền mới hoàn toàn
             memoryDisplay.innerText = text;
         }
     }
 
     function resetChat() {
         if (!confirm("Xóa toàn bộ cuộc trò chuyện và bộ nhớ?")) return;
-        
         history = [];
         currentSummary = "";
-        updateMemoryUI(""); // Xóa giao diện bộ nhớ
-
-        // Xóa tin nhắn cũ (Giữ lại loading)
+        updateMemoryUI("");
+        
         const msgs = chatBox.querySelectorAll('.message');
         msgs.forEach(m => m.remove());
 
@@ -191,7 +188,7 @@
         sys.innerText = "Đã reset bộ nhớ.";
         chatBox.insertBefore(sys, loading);
         
-        switchTab('chat'); // Quay về tab chat
+        switchTab('chat');
     }
 
     async function sendMessage() {
@@ -206,13 +203,17 @@
         scrollToBottom();
 
         try {
+            // Lấy giới hạn từ ô nhập
+            const limit = parseInt(memLimitInput.value) || 2000;
+
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: text,
                     history: history,
-                    currentSummary: currentSummary
+                    currentSummary: currentSummary,
+                    maxMemoryLength: limit // Gửi kèm giới hạn lên Server
                 })
             });
 
@@ -223,10 +224,9 @@
             const aiText = data.response || "Lỗi.";
             appendMessage(aiText, 'ai');
 
-            // --- CẬP NHẬT BỘ NHỚ ---
             if (data.newSummary) {
-                currentSummary = data.newSummary; // Lưu vào biến
-                updateMemoryUI(currentSummary);   // Hiển thị ra Tab mới
+                currentSummary = data.newSummary;
+                updateMemoryUI(currentSummary);
             }
 
             history.push({ role: "user", content: text });
