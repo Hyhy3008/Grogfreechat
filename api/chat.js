@@ -12,22 +12,24 @@ export default async function handler(req, res) {
         const { message, history, currentSummary } = req.body;
 
         // ======================================================
-        // BƯỚC 1: GROQ TRẢ LỜI
+        // BƯỚC 1: GROQ (Bộ não) - ĐỌC HIỂU CẤU TRÚC & TRẢ LỜI
         // ======================================================
 
         const systemPrompt = `
-        BẠN LÀ TRỢ LÝ AI (Llama-3 70B).
+        BẠN LÀ TRỢ LÝ AI CAO CẤP.
 
-        --- 📜 NHẬT KÝ TRÒ CHUYỆN (BẮT BUỘC ĐỌC) ---
-        ${currentSummary ? currentSummary : "Chưa có lịch sử."}
-        ----------------------------------------------
+        --- 🧠 BỘ NHỚ CẤU TRÚC (BRAIN STATE) ---
+        ${currentSummary ? currentSummary : "Trạng thái: Chưa có dữ liệu."}
+        ----------------------------------------
 
         NHIỆM VỤ:
-        1. Khi User hỏi: "Tôi đã hỏi gì?", hãy nhìn vào mục [LỊCH SỬ DIỄN BIẾN] trong nhật ký trên để liệt kê lại các mốc thời gian.
-        2. Trả lời câu hỏi hiện tại ngắn gọn, chính xác.
-        3. Luôn đối chiếu với Nhật ký để biết User đã đi qua những chủ đề nào (Hà Nội -> Hạ Long...).
+        1. Đọc [USER_PROFILE] để điều chỉnh giọng văn và gợi ý phù hợp sở thích.
+        2. Đọc [CURRENT_GOAL] để biết User đang muốn gì, tránh lạc đề.
+        3. Đọc [KNOWLEDGE_GRAPH] để KHÔNG lặp lại các gợi ý đã đưa ra trước đó.
+        4. Trả lời ngắn gọn, tự nhiên. TUYỆT ĐỐI KHÔNG để lộ cấu trúc bộ nhớ này ra cho User thấy.
         `;
 
+        // Lấy 2 tin nhắn gần nhất làm ngữ cảnh ngắn hạn
         const tinyHistory = (history || []).slice(-2); 
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -43,7 +45,7 @@ export default async function handler(req, res) {
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.6,
+                temperature: 0.7,
                 max_tokens: 1500
             })
         });
@@ -53,35 +55,35 @@ export default async function handler(req, res) {
 
 
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE GHI NHẬT KÝ (LOGGING MODE)
+        // BƯỚC 2: CLOUDFLARE (Thư ký) - CẬP NHẬT CẤU TRÚC
         // ======================================================
         
-        // Prompt này ép AI ghi lại HÀNH ĐỘNG của User theo trình tự thời gian
+        // Đây là Prompt "Kiến trúc sư dữ liệu"
         const updateMemoryPrompt = `
-        Bạn là Thư Ký Ghi Biên Bản. Nhiệm vụ là tóm tắt lại dòng chảy câu chuyện.
+        Bạn là Hệ Thống Quản Lý Trạng Thái (State Manager).
+        Nhiệm vụ: Cập nhật cấu trúc dữ liệu JSON-like dựa trên hội thoại mới.
 
         DỮ LIỆU CŨ: 
-        "${currentSummary || ''}"
+        ${currentSummary || '(Trống)'}
 
-        SỰ KIỆN MỚI: 
+        HỘI THOẠI MỚI: 
         User: "${message}" -> AI: "${aiReply}"
 
-        YÊU CẦU CẬP NHẬT (QUAN TRỌNG):
-        1. [HỒ SƠ USER]: Ghi lại tên, tuổi, sở thích (nếu có).
-        2. [LỊCH SỬ DIỄN BIẾN]: Đây là phần quan trọng nhất. Hãy liệt kê các hành động của User theo gạch đầu dòng.
-           - Nếu User hỏi về Hà Nội -> Ghi: "- User hỏi về du lịch Hà Nội."
-           - Nếu User hỏi về Hạ Long -> Ghi tiếp: "- User chuyển sang hỏi về Hạ Long."
-           - KHÔNG ĐƯỢC XÓA CÁC DÒNG CŨ. Chỉ viết tiếp xuống dưới.
-           - Giới hạn: Chỉ giữ lại khoảng 5-7 mốc sự kiện chính quan trọng nhất.
-        3. [KIẾN THỨC ĐÃ CUNG CẤP]: Ghi ngắn gọn các địa điểm/món ăn AI đã gợi ý.
+        HÃY VIẾT LẠI TOÀN BỘ CẤU TRÚC SAU (Cập nhật thông tin mới vào):
 
-        VÍ DỤ OUTPUT CHUẨN:
-        [HỒ SƠ USER]: Chưa có thông tin.
-        [LỊCH SỬ DIỄN BIẾN]:
-        - User chào hỏi.
-        - User hỏi kinh nghiệm du lịch Hà Nội.
-        - User hỏi tiếp về Vịnh Hạ Long.
-        [KIẾN THỨC ĐÃ CUNG CẤP]: Đã gợi ý Phở, Hồ Gươm (HN); Vịnh, Kayak (Hạ Long).
+        === USER_PROFILE ===
+        (Ghi lại Tên, Tuổi, Sở thích, Ghét gì... Nếu chưa có thì ghi "Chưa có")
+
+        === CURRENT_GOAL ===
+        (Chủ đề chính đang bàn là gì? User đang muốn giải quyết vấn đề gì? Ví dụ: Đang tìm khách sạn ở Đà Nẵng)
+
+        === KNOWLEDGE_GRAPH ===
+        (Danh sách các thực thể (Địa điểm, Món ăn, Khái niệm) mà AI ĐÃ GỢI Ý. Ghi ngắn gọn để tránh lặp lại sau này)
+
+        === SHORT_TERM_LOG ===
+        (Tóm tắt 3-5 dòng sự kiện chính của cuộc hội thoại từ đầu đến giờ. Viết kiểu gạch đầu dòng)
+
+        YÊU CẦU: Giữ nguyên các tiêu đề (=== ... ===). Nội dung bên trong cập nhật thông minh, ngắn gọn.
         `;
 
         const cfRes = await fetch(CF_WORKER_URL, {
@@ -91,7 +93,7 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Diary", 
+                prompt: "Update Brain State", 
                 systemPrompt: updateMemoryPrompt, 
                 history: [] 
             })
