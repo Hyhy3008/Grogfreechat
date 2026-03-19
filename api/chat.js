@@ -2,34 +2,19 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY; 
-    
-    // 👇👇 THÔNG TIN CLOUDFLARE 👇👇
     const CF_WORKER_URL = "https://muddy-paper-3417.nhatanhd50.workers.dev/"; 
     const CF_API_KEY = "12345678"; 
-    // --------------------------------
 
     try {
-        const { message, history, currentSummary } = req.body;
+        // Nhận thêm tham số maxMemoryLength từ Client
+        const { message, history, currentSummary, maxMemoryLength } = req.body;
+
+        // Giá trị mặc định nếu bạn không điền là 2000 ký tự
+        const targetLength = maxMemoryLength || 2000;
 
         // ======================================================
-        // BƯỚC 1: GROQ (Bộ não) - ĐỌC HIỂU CẤU TRÚC & TRẢ LỜI
+        // BƯỚC 1: GROQ TRẢ LỜI (GIỮ NGUYÊN)
         // ======================================================
-
-        const systemPrompt = `
-        BẠN LÀ TRỢ LÝ AI CAO CẤP.
-
-        --- 🧠 BỘ NHỚ CẤU TRÚC (BRAIN STATE) ---
-        ${currentSummary ? currentSummary : "Trạng thái: Chưa có dữ liệu."}
-        ----------------------------------------
-
-        NHIỆM VỤ:
-        1. Đọc [USER_PROFILE] để điều chỉnh giọng văn và gợi ý phù hợp sở thích.
-        2. Đọc [CURRENT_GOAL] để biết User đang muốn gì, tránh lạc đề.
-        3. Đọc [KNOWLEDGE_GRAPH] để KHÔNG lặp lại các gợi ý đã đưa ra trước đó.
-        4. Trả lời ngắn gọn, tự nhiên. TUYỆT ĐỐI KHÔNG để lộ cấu trúc bộ nhớ này ra cho User thấy.
-        `;
-
-        // Lấy 2 tin nhắn gần nhất làm ngữ cảnh ngắn hạn
         const tinyHistory = (history || []).slice(-2); 
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -41,7 +26,10 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: systemPrompt },
+                    { 
+                        role: "system", 
+                        content: `BẠN LÀ TRỢ LÝ AI.\n--- BỘ NHỚ ---\n${currentSummary || "Chưa có."}\n--------------\nNHIỆM VỤ: Trả lời ngắn gọn, thông minh.` 
+                    },
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
@@ -53,37 +41,32 @@ export default async function handler(req, res) {
         const groqData = await groqRes.json();
         const aiReply = groqData.choices?.[0]?.message?.content || "...";
 
-
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE (Thư ký) - CẬP NHẬT CẤU TRÚC
+        // BƯỚC 2: CLOUDFLARE TÓM TẮT (CÓ GIỚI HẠN ĐỘ DÀI)
         // ======================================================
         
-        // Đây là Prompt "Kiến trúc sư dữ liệu"
         const updateMemoryPrompt = `
-        Bạn là Hệ Thống Quản Lý Trạng Thái (State Manager).
-        Nhiệm vụ: Cập nhật cấu trúc dữ liệu JSON-like dựa trên hội thoại mới.
+        Bạn là Quản Lý Bộ Nhớ.
+        
+        NHIỆM VỤ: Cập nhật thông tin mới vào cấu trúc bộ nhớ hiện tại.
+        
+        ⚠️ YÊU CẦU QUAN TRỌNG VỀ ĐỘ DÀI:
+        - Người dùng yêu cầu giới hạn bộ nhớ tối đa là: ${targetLength} ký tự.
+        - Hãy viết tóm tắt thật SÚC TÍCH, CÔ ĐỌNG.
+        - Nếu dữ liệu cũ quá dài, hãy lược bỏ các chi tiết phụ, chỉ giữ lại ý chính (Keywords).
+        - Ưu tiên giữ lại: Thông tin cá nhân User (Profile) và Bối cảnh hiện tại.
 
         DỮ LIỆU CŨ: 
-        ${currentSummary || '(Trống)'}
+        ${currentSummary || ''}
 
         HỘI THOẠI MỚI: 
         User: "${message}" -> AI: "${aiReply}"
 
-        HÃY VIẾT LẠI TOÀN BỘ CẤU TRÚC SAU (Cập nhật thông tin mới vào):
-
+        OUTPUT FORMAT (Giữ nguyên tiêu đề):
         === USER_PROFILE ===
-        (Ghi lại Tên, Tuổi, Sở thích, Ghét gì... Nếu chưa có thì ghi "Chưa có")
-
         === CURRENT_GOAL ===
-        (Chủ đề chính đang bàn là gì? User đang muốn giải quyết vấn đề gì? Ví dụ: Đang tìm khách sạn ở Đà Nẵng)
-
         === KNOWLEDGE_GRAPH ===
-        (Danh sách các thực thể (Địa điểm, Món ăn, Khái niệm) mà AI ĐÃ GỢI Ý. Ghi ngắn gọn để tránh lặp lại sau này)
-
         === SHORT_TERM_LOG ===
-        (Tóm tắt 3-5 dòng sự kiện chính của cuộc hội thoại từ đầu đến giờ. Viết kiểu gạch đầu dòng)
-
-        YÊU CẦU: Giữ nguyên các tiêu đề (=== ... ===). Nội dung bên trong cập nhật thông minh, ngắn gọn.
         `;
 
         const cfRes = await fetch(CF_WORKER_URL, {
@@ -93,7 +76,7 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Brain State", 
+                prompt: "Update Memory Limit", 
                 systemPrompt: updateMemoryPrompt, 
                 history: [] 
             })
@@ -102,9 +85,6 @@ export default async function handler(req, res) {
         const cfData = await cfRes.json();
         const newSummary = cfData.response || currentSummary;
 
-        // ======================================================
-        // BƯỚC 3: TRẢ KẾT QUẢ
-        // ======================================================
         return res.status(200).json({
             response: aiReply,
             newSummary: newSummary
