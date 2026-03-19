@@ -12,37 +12,22 @@ export default async function handler(req, res) {
         const { message, history, currentSummary } = req.body;
 
         // ======================================================
-        // BƯỚC 1: GROQ SUY LUẬN (CRITICAL THINKING MODE)
+        // BƯỚC 1: GROQ TRẢ LỜI
         // ======================================================
 
         const systemPrompt = `
-        VAI TRÒ: Bạn là Chuyên Gia Tư Vấn AI Cao Cấp.
-        
-        --- 🧠 BỘ NHỚ TRẠNG THÁI (Đọc kỹ phần này) ---
-        ${currentSummary ? currentSummary : "Chưa có dữ liệu."}
+        BẠN LÀ TRỢ LÝ AI (Llama-3 70B).
+
+        --- 📜 NHẬT KÝ TRÒ CHUYỆN (BẮT BUỘC ĐỌC) ---
+        ${currentSummary ? currentSummary : "Chưa có lịch sử."}
         ----------------------------------------------
 
-        QUY TRÌNH TƯ DUY (BẮT BUỘC THỰC HIỆN TRƯỚC KHI TRẢ LỜI):
-        
-        1. **PHÂN TÍCH [HỒ SƠ USER]:** 
-           - Xác định xem User là ai, thích gì? (Ví dụ: Thích rẻ tiền hay sang trọng? Thích khám phá hay nghỉ dưỡng?).
-           - Điều chỉnh giọng văn cho phù hợp (Thân thiện hoặc Trang trọng).
-
-        2. **KIỂM TRA [BỐI CẢNH HIỆN TẠI]:**
-           - User đang hỏi tiếp nối chủ đề cũ hay chuyển sang chủ đề mới?
-           - Nếu User hỏi cộc lốc (ví dụ: "Còn gì nữa không?"), hãy nhìn bối cảnh để hiểu họ đang muốn hỏi thêm về cái gì.
-
-        3. **RÀ SOÁT [DỮ LIỆU ĐÃ CUNG CẤP] (QUAN TRỌNG NHẤT):**
-           - Kiểm tra xem mình ĐÃ từng gợi ý cái gì rồi.
-           - NGUYÊN TẮC VÀNG: Nếu User hỏi "còn gì khác không", TUYỆT ĐỐI KHÔNG lặp lại những thứ đã liệt kê trong bộ nhớ. Phải tìm kiếm thông tin MỚI.
-           - Ví dụ: Bộ nhớ ghi "Đã gợi ý Phở", thì lần này phải gợi ý "Bún chả" hoặc "Bún riêu".
-
-        4. **PHẢN HỒI:**
-           - Trả lời ngắn gọn, đi thẳng vào vấn đề.
-           - Không cần giải thích quy trình suy nghĩ của bạn, chỉ đưa ra kết quả cuối cùng.
+        NHIỆM VỤ:
+        1. Khi User hỏi: "Tôi đã hỏi gì?", hãy nhìn vào mục [LỊCH SỬ DIỄN BIẾN] trong nhật ký trên để liệt kê lại các mốc thời gian.
+        2. Trả lời câu hỏi hiện tại ngắn gọn, chính xác.
+        3. Luôn đối chiếu với Nhật ký để biết User đã đi qua những chủ đề nào (Hà Nội -> Hạ Long...).
         `;
 
-        // Lấy 2 tin nhắn gần nhất
         const tinyHistory = (history || []).slice(-2); 
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -54,11 +39,11 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: systemPrompt }, // Groq được dạy tư duy ở đây
+                    { role: "system", content: systemPrompt },
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.7, 
+                temperature: 0.6,
                 max_tokens: 1500
             })
         });
@@ -68,30 +53,35 @@ export default async function handler(req, res) {
 
 
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE TÓM TẮT & SẮP XẾP (STRUCTURING)
+        // BƯỚC 2: CLOUDFLARE GHI NHẬT KÝ (LOGGING MODE)
         // ======================================================
         
+        // Prompt này ép AI ghi lại HÀNH ĐỘNG của User theo trình tự thời gian
         const updateMemoryPrompt = `
-        Bạn là "Memory Librarian" (Thủ thư bộ nhớ). Nhiệm vụ là sắp xếp thông tin gọn gàng.
+        Bạn là Thư Ký Ghi Biên Bản. Nhiệm vụ là tóm tắt lại dòng chảy câu chuyện.
 
         DỮ LIỆU CŨ: 
-        "${currentSummary || 'Trống'}"
+        "${currentSummary || ''}"
 
-        HỘI THOẠI MỚI: 
+        SỰ KIỆN MỚI: 
         User: "${message}" -> AI: "${aiReply}"
 
-        YÊU CẦU CẬP NHẬT:
-        1. [HỒ SƠ USER]: Cập nhật nếu có thông tin cá nhân mới.
-        2. [BỐI CẢNH]: Cập nhật chủ đề đang bàn thảo hiện tại.
-        3. [DỮ LIỆU ĐÃ CUNG CẤP]: 
-           - Hãy trích xuất các DANH TỪ RIÊNG (Địa điểm, Tên món ăn, Tên sản phẩm) mà AI vừa đưa ra.
-           - CỘNG DỒN vào danh sách cũ.
-           - Ví dụ cũ: "Đã gợi ý: Phở". Mới: "Gợi ý: Bún chả". -> Kết quả: "Đã gợi ý: Phở, Bún chả".
-        
-        OUTPUT FORMAT (Giữ nguyên tiêu đề):
-        [HỒ SƠ USER]: ...
-        [BỐI CẢNH HIỆN TẠI]: ...
-        [DỮ LIỆU ĐÃ CUNG CẤP]: ...
+        YÊU CẦU CẬP NHẬT (QUAN TRỌNG):
+        1. [HỒ SƠ USER]: Ghi lại tên, tuổi, sở thích (nếu có).
+        2. [LỊCH SỬ DIỄN BIẾN]: Đây là phần quan trọng nhất. Hãy liệt kê các hành động của User theo gạch đầu dòng.
+           - Nếu User hỏi về Hà Nội -> Ghi: "- User hỏi về du lịch Hà Nội."
+           - Nếu User hỏi về Hạ Long -> Ghi tiếp: "- User chuyển sang hỏi về Hạ Long."
+           - KHÔNG ĐƯỢC XÓA CÁC DÒNG CŨ. Chỉ viết tiếp xuống dưới.
+           - Giới hạn: Chỉ giữ lại khoảng 5-7 mốc sự kiện chính quan trọng nhất.
+        3. [KIẾN THỨC ĐÃ CUNG CẤP]: Ghi ngắn gọn các địa điểm/món ăn AI đã gợi ý.
+
+        VÍ DỤ OUTPUT CHUẨN:
+        [HỒ SƠ USER]: Chưa có thông tin.
+        [LỊCH SỬ DIỄN BIẾN]:
+        - User chào hỏi.
+        - User hỏi kinh nghiệm du lịch Hà Nội.
+        - User hỏi tiếp về Vịnh Hạ Long.
+        [KIẾN THỨC ĐÃ CUNG CẤP]: Đã gợi ý Phở, Hồ Gươm (HN); Vịnh, Kayak (Hạ Long).
         `;
 
         const cfRes = await fetch(CF_WORKER_URL, {
@@ -101,7 +91,7 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Memory Structure", 
+                prompt: "Update Diary", 
                 systemPrompt: updateMemoryPrompt, 
                 history: [] 
             })
