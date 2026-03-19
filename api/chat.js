@@ -7,22 +7,34 @@ export default async function handler(req, res) {
 
     try {
         const { message, history, currentSummary, maxMemoryLength } = req.body;
-        const targetLength = maxMemoryLength || 2500; // Tăng nhẹ giới hạn mặc định
+        const targetLength = maxMemoryLength || 2500;
 
         // ======================================================
-        // BƯỚC 1: GROQ TRẢ LỜI (GIỮ NGUYÊN)
+        // BƯỚC 1: GROQ TRẢ LỜI (SYSTEM PROMPT CHUẨN LOGIC)
         // ======================================================
         const tinyHistory = (history || []).slice(-2); 
 
         const systemPrompt = `
-        BẠN LÀ TRỢ LÝ AI CAO CẤP.
-        --- BỘ NHỚ TRẠNG THÁI ---
-        ${currentSummary || "Chưa có dữ liệu."}
-        -------------------------
-        QUY TẮC:
-        1. Dựa vào bộ nhớ để trả lời.
-        2. Nếu User hỏi "Tổng kết lại", hãy liệt kê chi tiết các mục trong [KNOWLEDGE_GRAPH].
-        3. Trả lời tự nhiên, ngắn gọn.
+        BẠN LÀ TRỢ LÝ AI THÔNG MINH (Llama-3 70B).
+
+        --- 1. NGỮ CẢNH HỘI THOẠI (CONTEXT MEMORY) ---
+        (Đây chỉ là nhật ký những gì User và AI đã nói với nhau. KHÔNG PHẢI LÀ TOÀN BỘ KIẾN THỨC CỦA BẠN)
+        ${currentSummary || "Cuộc trò chuyện mới bắt đầu."}
+        ----------------------------------------------
+
+        --- 2. QUY TẮC SỬ DỤNG NÃO BỘ (CRITICAL INSTRUCTIONS) ---
+        
+        A. KHI USER HỎI KIẾN THỨC MỚI (Ví dụ: "Đà Nẵng đi đâu?", "Cách làm món Phở?"):
+           - BẮT BUỘC dùng **KIẾN THỨC NỘI TẠI (TRAINING DATA)** của bạn để trả lời.
+           - TUYỆT ĐỐI KHÔNG được nói "Trong bộ nhớ không có thông tin này". Bạn là AI, bạn biết cả thế giới, hãy trả lời tự tin.
+
+        B. KHI USER HỎI VỀ QUÁ KHỨ (Ví dụ: "Tôi đã hỏi gì?", "Tôi tên là gì?"):
+           - Lúc này mới nhìn vào phần **[1. NGỮ CẢNH HỘI THOẠI]** ở trên để trả lời.
+           - Nếu trong Ngữ cảnh có từ khóa (ví dụ: Phở), hãy xác nhận là User đã hỏi.
+
+        C. KHI TRẢ LỜI:
+           - Trả lời thẳng vào vấn đề.
+           - Không cần giải thích "Dựa trên bộ nhớ..." hay "Dựa trên kiến thức...". Cứ trả lời tự nhiên như người thật.
         `;
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -38,7 +50,7 @@ export default async function handler(req, res) {
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.6,
+                temperature: 0.7, // Tăng nhẹ để sáng tạo hơn khi trả lời kiến thức mới
                 max_tokens: 1500
             })
         });
@@ -48,38 +60,32 @@ export default async function handler(req, res) {
 
 
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE TÓM TẮT (CÓ BẢO VỆ DỮ LIỆU)
+        // BƯỚC 2: CLOUDFLARE CẬP NHẬT KIẾN THỨC MỚI VÀO CONTEXT
         // ======================================================
         
+        // Sau khi Groq đã dùng não để trả lời về "Đà Nẵng", 
+        // Cloudflare phải nhanh chóng ghi cái kiến thức mới đó vào Context để lần sau Groq nhớ là "Đã nói rồi".
+        
         const updateMemoryPrompt = `
-        VAI TRÒ: Bạn là Quản Trị Viên Cơ Sở Dữ Liệu (Database Admin).
-        NHIỆM VỤ: Hợp nhất thông tin mới vào bộ nhớ cũ mà KHÔNG ĐƯỢC LÀM MẤT DỮ LIỆU CHI TIẾT.
+        Bạn là Quản Lý Trạng Thái Hội Thoại.
 
         DỮ LIỆU CŨ: 
         ${currentSummary || ''}
 
-        HỘI THOẠI MỚI: 
+        DIỄN BIẾN MỚI: 
         User: "${message}" -> AI: "${aiReply}"
 
-        QUY TẮC CẬP NHẬT CỐT TỬ (BẮT BUỘC TUÂN THỦ):
+        NHIỆM VỤ CẬP NHẬT:
+        1. === KNOWLEDGE_GRAPH ===:
+           - QUAN TRỌNG: Nếu AI vừa đưa ra kiến thức mới (ví dụ: Cầu Rồng, Mỹ Khê...), hãy THÊM NGAY vào danh sách này.
+           - Nguyên tắc: CỘNG DỒN (Không xóa cái cũ).
 
-        1. === KNOWLEDGE_GRAPH === (QUAN TRỌNG NHẤT):
-           - Đây là kho chứa danh từ riêng (Địa điểm, Món ăn, Tên người...).
-           - NGUYÊN TẮC: CỘNG DỒN (APPEND ONLY).
-           - Tuyệt đối KHÔNG xóa các từ khóa đã có trong DỮ LIỆU CŨ (ví dụ: Phở, Hạ Long, Hồ Gươm...).
-           - Nếu hội thoại mới không nhắc đến địa điểm nào, hãy CHÉP Y NGUYÊN danh sách cũ xuống.
-           - Chỉ thêm từ khóa mới nếu có.
+        2. === SHORT_TERM_LOG ===:
+           - Ghi lại hành động: "User hỏi về Đà Nẵng -> AI gợi ý Cầu Rồng".
 
-        2. === USER_PROFILE ===:
-           - Giữ nguyên thông tin cũ. Chỉ cập nhật nếu User sửa lại thông tin cá nhân.
+        3. === USER_PROFILE ===: (Giữ nguyên hoặc cập nhật).
 
-        3. === CURRENT_GOAL ===:
-           - Cập nhật trạng thái hiện tại của cuộc trò chuyện.
-
-        4. === SHORT_TERM_LOG ===:
-           - Tóm tắt diễn biến mới nhất.
-
-        YÊU CẦU ĐỘ DÀI: Tổng cộng không quá ${targetLength} ký tự.
+        ĐỘ DÀI TỐI ĐA: ${targetLength} ký tự.
         
         OUTPUT FORMAT (Giữ nguyên tiêu đề):
         === USER_PROFILE ===
@@ -95,7 +101,7 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Protected Memory", 
+                prompt: "Update Knowledge Context", 
                 systemPrompt: updateMemoryPrompt, 
                 history: [] 
             })
