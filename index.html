@@ -7,17 +7,25 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
-        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; --success-color: #28a745; --text-color: #333; }
+        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; --success-color: #28a745; --text-color: #333; --warning-color: #ff9800; }
         * { box-sizing: border-box; }
         
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); height: 100dvh; width: 100vw; display: flex; justify-content: center; overflow: hidden; }
         .app-container { width: 100%; max-width: 600px; height: 100%; background: white; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
         
-        /* HEADER */
-        .header { padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: space-between; height: 50px; z-index: 10; }
-        .header-title { font-weight: 600; font-size: 16px; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
-        .reset-btn { background: none; border: none; cursor: pointer; color: var(--danger-color); font-size: 16px; padding: 8px; transition: 0.2s; border-radius: 50%; }
-        .reset-btn:hover { background: #ffe5e5; }
+        /* HEADER (Đã sửa lại gọn gàng) */
+        .header { padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: space-between; height: 60px; z-index: 10; }
+        
+        .header-left { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 18px; color: var(--text-color); }
+        .header-right { display: flex; gap: 15px; }
+
+        .header-btn { background: none; border: none; cursor: pointer; font-size: 18px; padding: 8px; transition: 0.2s; border-radius: 50%; color: #666; }
+        .header-btn:hover { background: #f0f0f0; color: var(--text-color); }
+        
+        /* Nút Bộ đàm trên Header */
+        #wtToggleBtn.active { color: var(--success-color); background: #e8f5e9; }
+        /* Nút Reset */
+        #resetBtn:hover { color: var(--danger-color); background: #ffe5e5; }
 
         /* TABS */
         .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; }
@@ -31,17 +39,28 @@
 
         /* CHAT UI */
         .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
-        .message { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-wrap: break-word; }
+        
+        .message { max-width: 85%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-wrap: break-word; }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
         
-        /* Tin nhắn hệ thống (Thông báo lỗi/chuyển mạng) */
-        .system { 
-            align-self: center; font-size: 12px; color: #666; 
-            background: rgba(0,0,0,0.05); padding: 5px 12px; 
-            border-radius: 12px; margin: 5px 0; text-align: center;
-            border: 1px solid rgba(0,0,0,0.1);
+        /* THINKING BOX (STYLE MỚI CHO QWEN) */
+        .reasoning-details {
+            margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; background: #f9f9f9;
         }
+        .reasoning-details summary {
+            padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; background: #f1f1f1; outline: none; list-style: none;
+        }
+        .reasoning-details summary::-webkit-details-marker { display: none; }
+        .reasoning-details summary::after { content: " ▼"; font-size: 10px; float: right; }
+        .reasoning-details[open] summary::after { content: " ▲"; }
+        
+        .reasoning-content {
+            padding: 10px 12px; font-size: 14px; color: #555; font-style: italic; font-family: monospace; border-top: 1px solid #e0e0e0; background: #fff;
+        }
+
+        /* SYSTEM MESSAGE */
+        .system { align-self: center; font-size: 12px; color: #666; background: rgba(0,0,0,0.05); padding: 5px 12px; border-radius: 12px; margin: 5px 0; text-align: center; border: 1px solid rgba(0,0,0,0.1); }
         
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; border: 1px solid #e5e5ea; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
@@ -77,12 +96,12 @@
         #micBtn { background: #e4e6eb; color: #333; }
         #micBtn.active { background: var(--danger-color); color: white; animation: pulse 1.5s infinite; }
 
+        /* Walkie Talkie UI */
         .walkie-talkie-mode { display: none; justify-content: center; align-items: center; padding: 20px; flex-direction: column; gap: 10px; background: #f8f9fa; border-top: 1px solid #ddd; }
         .big-mic-btn { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--primary-color); color: white; font-size: 30px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.1s, background 0.3s; display: flex; align-items: center; justify-content: center; }
+        .big-mic-btn:active { transform: scale(0.9); background: var(--danger-color); }
         .big-mic-btn.recording { background: var(--danger-color); animation: pulse 1.5s infinite; }
         .wt-status { font-size: 14px; color: #666; font-weight: 500; }
-
-        .mode-switch-voice { position: absolute; top: 60px; right: 15px; z-index: 20; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; font-size: 12px; }
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
     </style>
@@ -91,17 +110,19 @@
 
 <div class="app-container">
     <div class="header">
-        <div class="header-title"><i class="fas fa-brain" style="color: #0084ff;"></i> Super AI</div>
-        <button class="reset-btn" onclick="resetChat()" title="Xóa tất cả"><i class="fas fa-trash-alt"></i></button>
-    </div>
-
-    <!-- Toggle Voice Mode -->
-    <div class="mode-switch-voice">
-        <span>Chế độ Bộ đàm</span>
-        <label class="switch">
-            <input type="checkbox" id="modeToggle" onchange="toggleVoiceMode()">
-            <span class="slider"></span>
-        </label>
+        <div class="header-left">
+            <i class="fas fa-brain" style="color: #0084ff;"></i> Super AI
+        </div>
+        <div class="header-right">
+            <!-- Nút Bộ đàm (Di chuyển lên đây) -->
+            <button id="wtToggleBtn" class="header-btn" onclick="toggleVoiceMode()" title="Bật/Tắt chế độ Bộ đàm">
+                <i class="fas fa-walkie-talkie"></i>
+            </button>
+            <!-- Nút Reset -->
+            <button id="resetBtn" class="header-btn" onclick="resetChat()" title="Xóa tất cả">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
     </div>
 
     <div class="tabs">
@@ -125,7 +146,7 @@
                     <button id="sendBtn" class="action-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                 </div>
 
-                <!-- Chế độ Bộ đàm -->
+                <!-- Chế độ Bộ đàm (Hiện khi bấm nút trên Header) -->
                 <div class="walkie-talkie-mode" id="wtInput">
                     <div class="wt-status" id="wtStatus">Nhấn giữ để nói...</div>
                     <button id="bigMicBtn" class="big-mic-btn" 
@@ -140,7 +161,7 @@
         <!-- TAB 2: SETTINGS & MEMORY -->
         <div id="memoryPanel">
             <div class="settings-box">
-                <!-- Toggle Auto Switch -->
+                <!-- Auto Switch -->
                 <div class="toggle-row">
                     <label class="setting-label" style="margin:0; color:#000;">🔄 Tự động đổi Model khi quá tải:</label>
                     <label class="switch">
@@ -148,23 +169,20 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác và giữ cố định cho các lần sau.</small>
+                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác và giữ cố định.</small>
 
+                <!-- Model Select -->
                 <div class="setting-row">
-                    <label class="setting-label">🤖 Chọn Mô Hình AI (Ưu tiên):</label>
+                    <label class="setting-label">🤖 Chọn Mô Hình AI:</label>
                     <select id="modelSelect" class="full-width">
-                        <!-- DANH SÁCH CHUẨN ĐÃ LỌC -->
                         <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh nhất - Ổn định)</option>
                         <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh nhất)</option>
-                        
+                        <option value="qwen/qwen3-32b">Qwen 3 32B (Có Reasoning/Thinking)</option>
                         <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
-                        <option value="qwen/qwen3-32b">Qwen 3 32B (Trung Quốc)</option>
-                        
                         <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
                         <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
-                        
-                        <option value="openai/gpt-oss-120b">GPT-OSS 120B (Model lớn)</option>
-                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Model nhỏ)</option>
+                        <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
                         <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
                     </select>
                 </div>
@@ -200,11 +218,12 @@
     const modelSelect = document.getElementById('modelSelect');
     const autoSwitchToggle = document.getElementById('autoSwitchToggle');
     
-    // Mode Elements
+    // Voice Elements
     const normalInput = document.getElementById('normalInput');
     const wtInput = document.getElementById('wtInput');
     const bigMicBtn = document.getElementById('bigMicBtn');
     const wtStatus = document.getElementById('wtStatus');
+    const wtToggleBtn = document.getElementById('wtToggleBtn');
     
     let history = []; 
     let currentSummary = ""; 
@@ -225,9 +244,16 @@
     }
 
     function toggleVoiceMode() {
-        isWTMode = document.getElementById('modeToggle').checked;
-        normalInput.style.display = isWTMode ? 'none' : 'flex';
-        wtInput.style.display = isWTMode ? 'flex' : 'none';
+        isWTMode = !isWTMode;
+        if (isWTMode) {
+            normalInput.style.display = 'none';
+            wtInput.style.display = 'flex';
+            wtToggleBtn.classList.add('active');
+        } else {
+            normalInput.style.display = 'flex';
+            wtInput.style.display = 'none';
+            wtToggleBtn.classList.remove('active');
+        }
     }
     function startHold() { recognition?.start(); bigMicBtn.classList.add('recording'); wtStatus.innerText = "Đang nghe..."; }
     function endHold() { recognition?.stop(); bigMicBtn.classList.remove('recording'); wtStatus.innerText = "Đang xử lý..."; }
@@ -237,7 +263,7 @@
         else { recognition.start(); micBtn.classList.add('active'); } 
     }
 
-    // --- LOGIC CHAT THÔNG MINH ---
+    // --- LOGIC CHAT ---
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
     async function sendMessage() {
@@ -252,70 +278,49 @@
 
         const selectedModel = modelSelect.value;
         const autoSwitch = autoSwitchToggle.checked;
-        
         await sendRequestWithFallback(text, selectedModel, autoSwitch);
         
         if(!isWTMode) toggleInput(true);
     }
 
-    // --- HÀM GỬI CÓ CƠ CHẾ AUTO-SWITCH & UPDATE DROPDOWN ---
     async function sendRequestWithFallback(text, currentModel, autoSwitch) {
         try {
             const limit = parseInt(memLimitInput.value) || 2000;
-            
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    message: text,
-                    history: history,
-                    currentSummary: currentSummary,
-                    maxMemoryLength: limit,
-                    model: currentModel
+                    message: text, history: history, currentSummary: currentSummary,
+                    maxMemoryLength: limit, model: currentModel
                 })
             });
 
             const data = await res.json();
-            
             if (data.error) throw new Error(data.error);
 
-            // --- THÀNH CÔNG ---
             loading.style.display = 'none';
-            const aiText = data.response || "Lỗi phản hồi.";
-            appendMessage(aiText, 'ai');
+            // --- XỬ LÝ HIỂN THỊ REASONING (QWEN) ---
+            const rawText = data.response || "Lỗi.";
+            appendMessage(rawText, 'ai', true); // true = enable parsing reasoning
 
-            if (data.newSummary) {
-                currentSummary = data.newSummary;
-                updateMemoryUI(currentSummary);
-            }
+            if (data.newSummary) { currentSummary = data.newSummary; updateMemoryUI(currentSummary); }
             history.push({ role: "user", content: text });
-            history.push({ role: "assistant", content: aiText });
+            history.push({ role: "assistant", content: rawText });
 
         } catch (error) {
-            // --- XỬ LÝ LỖI & CHUYỂN MẠNG ---
             console.warn(`Model ${currentModel} thất bại:`, error.message);
-
-            const isOverloaded = error.message.includes("429") || 
-                                 error.message.includes("over capacity") || 
-                                 error.message.includes("Rate limit") ||
-                                 error.message.includes("quota");
+            const isOverloaded = error.message.includes("429") || error.message.includes("over capacity") || error.message.includes("Rate limit");
 
             if (isOverloaded && autoSwitch) {
-                // Tìm model kế tiếp
                 const nextModel = getNextModel(currentModel);
-                
                 if (nextModel) {
-                    appendSystemMessage(`⚠️ ${currentModel} quá tải. Tự động chuyển sang ${nextModel}...`);
-                    
-                    // QUAN TRỌNG: Cập nhật luôn Dropdown để lần sau dùng model mới này luôn
+                    appendSystemMessage(`⚠️ ${currentModel} quá tải. Chuyển sang ${nextModel}...`);
                     modelSelect.value = nextModel; 
-
-                    // Gọi đệ quy thử lại ngay
                     await sendRequestWithFallback(text, nextModel, true);
                     return; 
                 } else {
                     loading.style.display = 'none';
-                    appendSystemMessage("❌ Tất cả server đều bận. Vui lòng thử lại sau.");
+                    appendSystemMessage("❌ Tất cả server bận.");
                 }
             } else {
                 loading.style.display = 'none';
@@ -331,7 +336,6 @@
         return options[0]; 
     }
 
-    // --- UI HELPERS ---
     function switchTab(tabName) {
         document.getElementById('chatPanel').style.display = tabName === 'chat' ? 'flex' : 'none';
         document.getElementById('memoryPanel').style.display = tabName === 'chat' ? 'none' : 'block';
@@ -349,9 +353,32 @@
         switchTab('chat');
     }
 
-    function appendMessage(text, sender) {
-        const div = document.createElement('div'); div.className = `message ${sender}`;
-        div.innerHTML = text.replace(/\n/g, "<br>");
+    // --- HÀM RENDER TIN NHẮN (CÓ LOGIC ẨN REASONING) ---
+    function appendMessage(text, sender, parseReasoning = false) {
+        const div = document.createElement('div'); 
+        div.className = `message ${sender}`;
+        
+        if (sender === 'ai' && parseReasoning) {
+            // Tìm thẻ <think>...</think>
+            const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
+            if (thinkMatch) {
+                const thinkingContent = thinkMatch[1].trim();
+                const mainContent = text.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
+                
+                div.innerHTML = `
+                    <details class="reasoning-details">
+                        <summary>🤔 Quá trình suy luận (Nhấn để xem)</summary>
+                        <div class="reasoning-content">${thinkingContent.replace(/\n/g, "<br>")}</div>
+                    </details>
+                    <div>${mainContent.replace(/\n/g, "<br>")}</div>
+                `;
+            } else {
+                div.innerHTML = text.replace(/\n/g, "<br>");
+            }
+        } else {
+            div.innerHTML = text.replace(/\n/g, "<br>");
+        }
+        
         chatBox.insertBefore(div, loading); scrollToBottom();
     }
 
