@@ -6,16 +6,24 @@ export default async function handler(req, res) {
     const CF_API_KEY = "12345678"; 
 
     try {
-        // Nhận thêm tham số maxMemoryLength từ Client
         const { message, history, currentSummary, maxMemoryLength } = req.body;
-
-        // Giá trị mặc định nếu bạn không điền là 2000 ký tự
-        const targetLength = maxMemoryLength || 2000;
+        const targetLength = maxMemoryLength || 2500; // Tăng nhẹ giới hạn mặc định
 
         // ======================================================
         // BƯỚC 1: GROQ TRẢ LỜI (GIỮ NGUYÊN)
         // ======================================================
         const tinyHistory = (history || []).slice(-2); 
+
+        const systemPrompt = `
+        BẠN LÀ TRỢ LÝ AI CAO CẤP.
+        --- BỘ NHỚ TRẠNG THÁI ---
+        ${currentSummary || "Chưa có dữ liệu."}
+        -------------------------
+        QUY TẮC:
+        1. Dựa vào bộ nhớ để trả lời.
+        2. Nếu User hỏi "Tổng kết lại", hãy liệt kê chi tiết các mục trong [KNOWLEDGE_GRAPH].
+        3. Trả lời tự nhiên, ngắn gọn.
+        `;
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -26,14 +34,11 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { 
-                        role: "system", 
-                        content: `BẠN LÀ TRỢ LÝ AI.\n--- BỘ NHỚ ---\n${currentSummary || "Chưa có."}\n--------------\nNHIỆM VỤ: Trả lời ngắn gọn, thông minh.` 
-                    },
+                    { role: "system", content: systemPrompt },
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.7,
+                temperature: 0.6,
                 max_tokens: 1500
             })
         });
@@ -41,20 +46,14 @@ export default async function handler(req, res) {
         const groqData = await groqRes.json();
         const aiReply = groqData.choices?.[0]?.message?.content || "...";
 
+
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE TÓM TẮT (CÓ GIỚI HẠN ĐỘ DÀI)
+        // BƯỚC 2: CLOUDFLARE TÓM TẮT (CÓ BẢO VỆ DỮ LIỆU)
         // ======================================================
         
         const updateMemoryPrompt = `
-        Bạn là Quản Lý Bộ Nhớ.
-        
-        NHIỆM VỤ: Cập nhật thông tin mới vào cấu trúc bộ nhớ hiện tại.
-        
-        ⚠️ YÊU CẦU QUAN TRỌNG VỀ ĐỘ DÀI:
-        - Người dùng yêu cầu giới hạn bộ nhớ tối đa là: ${targetLength} ký tự.
-        - Hãy viết tóm tắt thật SÚC TÍCH, CÔ ĐỌNG.
-        - Nếu dữ liệu cũ quá dài, hãy lược bỏ các chi tiết phụ, chỉ giữ lại ý chính (Keywords).
-        - Ưu tiên giữ lại: Thông tin cá nhân User (Profile) và Bối cảnh hiện tại.
+        VAI TRÒ: Bạn là Quản Trị Viên Cơ Sở Dữ Liệu (Database Admin).
+        NHIỆM VỤ: Hợp nhất thông tin mới vào bộ nhớ cũ mà KHÔNG ĐƯỢC LÀM MẤT DỮ LIỆU CHI TIẾT.
 
         DỮ LIỆU CŨ: 
         ${currentSummary || ''}
@@ -62,6 +61,26 @@ export default async function handler(req, res) {
         HỘI THOẠI MỚI: 
         User: "${message}" -> AI: "${aiReply}"
 
+        QUY TẮC CẬP NHẬT CỐT TỬ (BẮT BUỘC TUÂN THỦ):
+
+        1. === KNOWLEDGE_GRAPH === (QUAN TRỌNG NHẤT):
+           - Đây là kho chứa danh từ riêng (Địa điểm, Món ăn, Tên người...).
+           - NGUYÊN TẮC: CỘNG DỒN (APPEND ONLY).
+           - Tuyệt đối KHÔNG xóa các từ khóa đã có trong DỮ LIỆU CŨ (ví dụ: Phở, Hạ Long, Hồ Gươm...).
+           - Nếu hội thoại mới không nhắc đến địa điểm nào, hãy CHÉP Y NGUYÊN danh sách cũ xuống.
+           - Chỉ thêm từ khóa mới nếu có.
+
+        2. === USER_PROFILE ===:
+           - Giữ nguyên thông tin cũ. Chỉ cập nhật nếu User sửa lại thông tin cá nhân.
+
+        3. === CURRENT_GOAL ===:
+           - Cập nhật trạng thái hiện tại của cuộc trò chuyện.
+
+        4. === SHORT_TERM_LOG ===:
+           - Tóm tắt diễn biến mới nhất.
+
+        YÊU CẦU ĐỘ DÀI: Tổng cộng không quá ${targetLength} ký tự.
+        
         OUTPUT FORMAT (Giữ nguyên tiêu đề):
         === USER_PROFILE ===
         === CURRENT_GOAL ===
@@ -76,7 +95,7 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Memory Limit", 
+                prompt: "Update Protected Memory", 
                 systemPrompt: updateMemoryPrompt, 
                 history: [] 
             })
