@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Chatbot Pro</title>
+    <title>AI Chatbot Pro + Voice</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
@@ -44,14 +44,11 @@
         #chatPanel { height: 100%; display: flex; flex-direction: column; }
         #memoryPanel { height: 100%; padding: 20px; overflow-y: auto; background: #fff; display: none; }
 
-        /* MEMORY CONTROLS (MỚI) */
-        .mem-controls {
-            background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px;
-        }
+        /* MEMORY CONTROLS */
+        .mem-controls { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         .mem-stat { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #555; }
         .mem-input-group { display: flex; align-items: center; gap: 10px; }
         .mem-input-group input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
-        .mem-input-group label { font-size: 14px; font-weight: 600; }
         
         .memory-content {
             background: #f8f9fa; border: 1px solid #e9ecef;
@@ -71,11 +68,26 @@
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
+        /* INPUT AREA & VOICE BUTTON */
         .input-area { padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; display: flex; align-items: center; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 15px); }
         input { flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #c6c6c8; font-size: 16px; outline: none; background: #f9f9f9; }
         input:focus { border-color: var(--primary-color); background: white; }
-        button { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--primary-color); color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        button:disabled { background: #ccc; }
+        
+        /* Nút gửi & Nút Mic chung Style */
+        .action-btn { width: 40px; height: 40px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        
+        #sendBtn { background: var(--primary-color); color: white; }
+        #sendBtn:disabled { background: #ccc; }
+        
+        /* Style riêng cho Mic */
+        #micBtn { background: #e4e6eb; color: #333; }
+        #micBtn.listening { background: var(--danger-color); color: white; animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
     </style>
 </head>
 <body>
@@ -88,7 +100,7 @@
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
-        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Cài đặt Bộ Nhớ</button>
+        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Bộ Nhớ</button>
     </div>
 
     <div class="content-area">
@@ -100,26 +112,24 @@
             </div>
             <div class="input-area">
                 <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
-                <button id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                <!-- Nút Mic Mới -->
+                <button id="micBtn" class="action-btn" onclick="toggleVoice()"><i class="fas fa-microphone"></i></button>
+                <!-- Nút Gửi -->
+                <button id="sendBtn" class="action-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
 
-        <!-- TAB MEMORY (CÓ CÀI ĐẶT) -->
+        <!-- TAB MEMORY -->
         <div id="memoryPanel">
-            <!-- Khu vực điều khiển giới hạn -->
             <div class="mem-controls">
                 <div class="mem-stat">
-                    <span>Độ dài hiện tại: <b id="currLen" style="color:var(--success-color)">0</b> ký tự</span>
+                    <span>Độ dài: <b id="currLen" style="color:var(--success-color)">0</b></span>
                 </div>
                 <div class="mem-input-group">
-                    <label>Giới hạn (Max):</label>
+                    <label>Giới hạn:</label>
                     <input type="number" id="memLimitInput" value="2000" min="500" step="100">
-                    <small style="color:#666">ký tự</small>
                 </div>
-                <small style="display:block; margin-top:5px; color:#888;">*AI sẽ tự động tóm tắt ngắn lại khi vượt quá giới hạn này.</small>
             </div>
-
-            <h3 style="margin-top:0; color:#333; font-size:14px;">Nội dung bộ nhớ:</h3>
             <div id="memoryDisplay" class="memory-content">
                 <div style="color:#999; font-style:italic;">Chưa có dữ liệu...</div>
             </div>
@@ -132,6 +142,7 @@
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
+    const micBtn = document.getElementById('micBtn');
     const loading = document.getElementById('loading');
     const memoryDisplay = document.getElementById('memoryDisplay');
     const currLen = document.getElementById('currLen');
@@ -140,7 +151,59 @@
     let history = []; 
     let currentSummary = ""; 
 
-    userInput.focus();
+    // --- XỬ LÝ VOICE (WEB SPEECH API) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'vi-VN'; // Ngôn ngữ Tiếng Việt
+        recognition.continuous = false; // Tự dừng khi nói xong câu
+        recognition.interimResults = false;
+
+        recognition.onstart = function() {
+            isListening = true;
+            micBtn.classList.add('listening');
+            userInput.placeholder = "Đang nghe...";
+        };
+
+        recognition.onend = function() {
+            isListening = false;
+            micBtn.classList.remove('listening');
+            userInput.placeholder = "Nhập tin nhắn...";
+        };
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+            userInput.focus(); // Focus để User có thể sửa nếu nhận diện sai
+        };
+        
+        recognition.onerror = function(event) {
+            console.error("Lỗi Voice:", event.error);
+            isListening = false;
+            micBtn.classList.remove('listening');
+            alert("Không nhận diện được giọng nói. Vui lòng thử lại.");
+        };
+    } else {
+        micBtn.style.display = 'none'; // Ẩn nút nếu trình duyệt không hỗ trợ
+        console.log("Trình duyệt không hỗ trợ Web Speech API");
+    }
+
+    function toggleVoice() {
+        if (!recognition) {
+            alert("Trình duyệt của bạn không hỗ trợ tính năng này.");
+            return;
+        }
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    }
+
+    // --- CÁC HÀM CŨ (GIỮ NGUYÊN LOGIC) ---
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
     function switchTab(tabName) {
@@ -161,7 +224,6 @@
         const len = text ? text.length : 0;
         currLen.innerText = len;
         
-        // Đổi màu cảnh báo nếu gần đầy
         const limit = parseInt(memLimitInput.value) || 2000;
         if (len > limit) currLen.style.color = "red";
         else if (len > limit * 0.8) currLen.style.color = "orange";
@@ -203,7 +265,6 @@
         scrollToBottom();
 
         try {
-            // Lấy giới hạn từ ô nhập
             const limit = parseInt(memLimitInput.value) || 2000;
 
             const res = await fetch(API_URL, {
@@ -213,7 +274,7 @@
                     message: text,
                     history: history,
                     currentSummary: currentSummary,
-                    maxMemoryLength: limit // Gửi kèm giới hạn lên Server
+                    maxMemoryLength: limit
                 })
             });
 
@@ -251,6 +312,7 @@
     function toggleInput(enabled) {
         userInput.disabled = !enabled;
         sendBtn.disabled = !enabled;
+        micBtn.disabled = !enabled; // Khóa luôn nút Mic khi đang gửi
     }
 
     function scrollToBottom() {
