@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Chatbot</title>
-    <!-- Icon -->
+    <title>AI Chatbot Pro</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
-        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; }
+        :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; }
         * { box-sizing: border-box; }
         
         body { 
@@ -17,7 +16,7 @@
             background: var(--bg-color); 
             height: 100dvh; width: 100vw; 
             display: flex; justify-content: center; 
-            overflow: hidden; /* Chặn cuộn trang */
+            overflow: hidden; 
         }
         
         .app-container { 
@@ -26,12 +25,22 @@
             position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); 
         }
         
-        /* HEADER SẠCH SẼ - CHỈ CÓ TIÊU ĐỀ */
+        /* HEADER CÓ NÚT RESET */
         .header { 
-            padding: 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; 
-            display: flex; align-items: center; justify-content: center; 
-            font-weight: 600; font-size: 18px; color: #333; height: 60px; z-index: 10; 
+            padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; 
+            display: flex; align-items: center; justify-content: space-between; /* Căn đều 2 bên */
+            height: 60px; z-index: 10; 
         }
+        
+        .header-title { font-weight: 600; font-size: 18px; color: #333; display: flex; align-items: center; gap: 8px; }
+        
+        /* Nút Reset (Thùng rác) */
+        .reset-btn {
+            background: none; border: none; cursor: pointer; color: var(--danger-color);
+            font-size: 18px; padding: 8px; border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .reset-btn:hover { background: #ffe5e5; }
         
         /* KHUNG CHAT */
         .chat-area { 
@@ -42,7 +51,6 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* TIN NHẮN */
         .message { 
             max-width: 80%; padding: 10px 16px; border-radius: 18px; 
             font-size: 16px; line-height: 1.5; word-wrap: break-word; 
@@ -50,13 +58,16 @@
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
         
-        /* LOADING DOTS */
+        /* Thông báo hệ thống (khi reset) */
+        .system-msg { align-self: center; font-size: 13px; color: #888; margin: 10px 0; font-style: italic; }
+
+        /* LOADING */
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-        /* INPUT AREA */
+        /* INPUT */
         .input-area { 
             padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; 
             display: flex; align-items: center; gap: 10px; 
@@ -71,21 +82,21 @@
 <body>
 
 <div class="app-container">
-    <!-- Header chỉ có tên App -->
     <div class="header">
-        <i class="fas fa-robot" style="margin-right: 8px; color: #0084ff;"></i> Trợ Lý AI
+        <div class="header-title">
+            <i class="fas fa-robot" style="color: #0084ff;"></i> Trợ Lý AI
+        </div>
+        <!-- Nút Reset Chat -->
+        <button class="reset-btn" onclick="resetChat()" title="Xóa bộ nhớ & Chat mới">
+            <i class="fas fa-trash-alt"></i>
+        </button>
     </div>
 
-    <!-- Khung chat -->
     <div class="chat-area" id="chatBox">
         <div class="message ai">Xin chào! Mình có thể giúp gì cho bạn?</div>
-        <!-- Loading -->
-        <div class="typing" id="loading">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </div>
+        <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
     </div>
 
-    <!-- Nhập liệu -->
     <div class="input-area">
         <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
         <button id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
@@ -102,36 +113,51 @@
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
     
-    // --- BỘ NHỚ ẨN (SECRET MEMORY) ---
-    // Biến này lưu trữ trong RAM của trình duyệt, User không thấy
+    // --- BỘ NHỚ ---
     let history = []; 
     let currentSummary = ""; 
 
     userInput.focus();
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
+    // HÀM RESET CHAT (XÓA BỘ NHỚ)
+    function resetChat() {
+        if (!confirm("Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện và bộ nhớ không?")) return;
+
+        // 1. Xóa sạch biến bộ nhớ
+        history = [];
+        currentSummary = "";
+        
+        // 2. Làm sạch giao diện
+        chatBox.innerHTML = `
+            <div class="message ai">Đã xóa bộ nhớ! Chúng ta bắt đầu lại nhé.</div>
+            <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        `;
+
+        // Debug để bạn yên tâm
+        console.log("Memory Cleared!");
+    }
+
     async function sendMessage() {
         const text = userInput.value.trim();
         if (!text) return;
 
-        // 1. Hiện tin User
         appendMessage(text, 'user');
         userInput.value = '';
-        userInput.blur(); // Ẩn bàn phím mobile
+        userInput.blur();
         
         toggleInput(false);
         loading.style.display = 'block';
         scrollToBottom();
 
         try {
-            // 2. Gửi dữ liệu ngầm lên Server
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: text,
                     history: history,
-                    currentSummary: currentSummary // <--- Gửi đi âm thầm
+                    currentSummary: currentSummary // Gửi bộ nhớ hiện tại đi
                 })
             });
 
@@ -139,18 +165,15 @@
             
             if (data.error) throw new Error(data.error);
 
-            // 3. Hiện câu trả lời
             loading.style.display = 'none';
-            const aiText = data.response || "Không có phản hồi.";
+            const aiText = data.response || "Lỗi phản hồi.";
             appendMessage(aiText, 'ai');
 
-            // 4. CẬP NHẬT BỘ NHỚ NGẦM (QUAN TRỌNG)
+            // Cập nhật bộ nhớ mới từ Server trả về
             if (data.newSummary) {
-                currentSummary = data.newSummary; 
-                // Tuyệt đối không in ra màn hình
+                currentSummary = data.newSummary;
             }
 
-            // Lưu history hiển thị
             history.push({ role: "user", content: text });
             history.push({ role: "assistant", content: aiText });
 
