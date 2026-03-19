@@ -1,41 +1,49 @@
 export default async function handler(req, res) {
-    // Chỉ chấp nhận POST
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
+    if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    // --- CẤU HÌNH ---
     const GROQ_API_KEY = process.env.GROQ_API_KEY; 
     
-    // 👇👇 THÔNG TIN CLOUDFLARE (Điền cứng của bạn) 👇👇
+    // 👇👇 THÔNG TIN CLOUDFLARE 👇👇
     const CF_WORKER_URL = "https://muddy-paper-3417.nhatanhd50.workers.dev/"; 
     const CF_API_KEY = "12345678"; 
-    // ---------------------------------------------------
+    // --------------------------------
 
     try {
         const { message, history, currentSummary } = req.body;
 
         // ======================================================
-        // BƯỚC 1: GROQ SUY LUẬN & TRẢ LỜI
+        // BƯỚC 1: GROQ SUY LUẬN (CRITICAL THINKING MODE)
         // ======================================================
 
-        // Chỉ lấy 2 tin nhắn gần nhất để gửi Groq (Tiết kiệm & Nhanh)
-        const tinyHistory = (history || []).slice(-2); 
-
-        // System Prompt: Ép AI phải đọc Tóm tắt để hiểu ngữ cảnh cũ
         const systemPrompt = `
-        BẠN LÀ TRỢ LÝ AI THÔNG MINH (Model Llama-3 70B).
+        VAI TRÒ: Bạn là Chuyên Gia Tư Vấn AI Cao Cấp.
+        
+        --- 🧠 BỘ NHỚ TRẠNG THÁI (Đọc kỹ phần này) ---
+        ${currentSummary ? currentSummary : "Chưa có dữ liệu."}
+        ----------------------------------------------
 
-        --- DỮ LIỆU KÝ ỨC (CONTEXT) ---
-        ${currentSummary ? currentSummary : "Chưa có thông tin gì."}
-        --------------------------------
+        QUY TRÌNH TƯ DUY (BẮT BUỘC THỰC HIỆN TRƯỚC KHI TRẢ LỜI):
+        
+        1. **PHÂN TÍCH [HỒ SƠ USER]:** 
+           - Xác định xem User là ai, thích gì? (Ví dụ: Thích rẻ tiền hay sang trọng? Thích khám phá hay nghỉ dưỡng?).
+           - Điều chỉnh giọng văn cho phù hợp (Thân thiện hoặc Trang trọng).
 
-        NHIỆM VỤ:
-        1. Trả lời câu hỏi hiện tại của User.
-        2. KẾT HỢP KÝ ỨC: Nếu User hỏi những câu thiếu chủ ngữ (ví dụ: "Ở đó ăn gì ngon?", "Vé đắt không?"), hãy nhìn vào phần "DỮ LIỆU KÝ ỨC" để biết User đang nói về địa điểm nào (Hà Nội? Đà Nẵng? hay Sài Gòn?).
-        3. Nếu ký ức không rõ ràng, hãy HỎI LẠI User để xác nhận.
-        4. Trả lời ngắn gọn, hữu ích, tiếng Việt tự nhiên.
+        2. **KIỂM TRA [BỐI CẢNH HIỆN TẠI]:**
+           - User đang hỏi tiếp nối chủ đề cũ hay chuyển sang chủ đề mới?
+           - Nếu User hỏi cộc lốc (ví dụ: "Còn gì nữa không?"), hãy nhìn bối cảnh để hiểu họ đang muốn hỏi thêm về cái gì.
+
+        3. **RÀ SOÁT [DỮ LIỆU ĐÃ CUNG CẤP] (QUAN TRỌNG NHẤT):**
+           - Kiểm tra xem mình ĐÃ từng gợi ý cái gì rồi.
+           - NGUYÊN TẮC VÀNG: Nếu User hỏi "còn gì khác không", TUYỆT ĐỐI KHÔNG lặp lại những thứ đã liệt kê trong bộ nhớ. Phải tìm kiếm thông tin MỚI.
+           - Ví dụ: Bộ nhớ ghi "Đã gợi ý Phở", thì lần này phải gợi ý "Bún chả" hoặc "Bún riêu".
+
+        4. **PHẢN HỒI:**
+           - Trả lời ngắn gọn, đi thẳng vào vấn đề.
+           - Không cần giải thích quy trình suy nghĩ của bạn, chỉ đưa ra kết quả cuối cùng.
         `;
+
+        // Lấy 2 tin nhắn gần nhất
+        const tinyHistory = (history || []).slice(-2); 
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -46,43 +54,44 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: systemPrompt },
+                    { role: "system", content: systemPrompt }, // Groq được dạy tư duy ở đây
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.6,
+                temperature: 0.7, 
                 max_tokens: 1500
             })
         });
 
         const groqData = await groqRes.json();
-        
-        // Xử lý lỗi nếu Groq bị quá tải
-        if (groqData.error) throw new Error(groqData.error.message);
-        
-        const aiReply = groqData.choices?.[0]?.message?.content || "Xin lỗi, tôi đang suy nghĩ...";
+        const aiReply = groqData.choices?.[0]?.message?.content || "...";
 
 
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE GHI NHỚ (CỘNG DỒN THÔNG TIN)
+        // BƯỚC 2: CLOUDFLARE TÓM TẮT & SẮP XẾP (STRUCTURING)
         // ======================================================
         
-        // Đây là Prompt quan trọng nhất để sửa lỗi "Quên bài cũ"
         const updateMemoryPrompt = `
-        Bạn là Thư Ký Ghi Chép Thông Minh.
+        Bạn là "Memory Librarian" (Thủ thư bộ nhớ). Nhiệm vụ là sắp xếp thông tin gọn gàng.
+
+        DỮ LIỆU CŨ: 
+        "${currentSummary || 'Trống'}"
+
+        HỘI THOẠI MỚI: 
+        User: "${message}" -> AI: "${aiReply}"
+
+        YÊU CẦU CẬP NHẬT:
+        1. [HỒ SƠ USER]: Cập nhật nếu có thông tin cá nhân mới.
+        2. [BỐI CẢNH]: Cập nhật chủ đề đang bàn thảo hiện tại.
+        3. [DỮ LIỆU ĐÃ CUNG CẤP]: 
+           - Hãy trích xuất các DANH TỪ RIÊNG (Địa điểm, Tên món ăn, Tên sản phẩm) mà AI vừa đưa ra.
+           - CỘNG DỒN vào danh sách cũ.
+           - Ví dụ cũ: "Đã gợi ý: Phở". Mới: "Gợi ý: Bún chả". -> Kết quả: "Đã gợi ý: Phở, Bún chả".
         
-        DỮ LIỆU CŨ: "${currentSummary || 'Chưa có'}"
-        
-        HỘI THOẠI MỚI NHẤT:
-        User: "${message}"
-        AI: "${aiReply}"
-        
-        NHIỆM VỤ CẬP NHẬT (QUAN TRỌNG):
-        1. KHÔNG ĐƯỢC XÓA thông tin cũ. Bạn phải DUY TRÌ một danh sách các chủ đề đã thảo luận.
-        2. Nếu User chuyển chủ đề (ví dụ từ Hà Nội sang Đà Nẵng), hãy ghi thêm vào: "Đã bàn về Hà Nội, và hiện tại đang hỏi về Đà Nẵng".
-        3. Ghi lại các sở thích, thông tin cá nhân (Tên, tuổi, nghề...) nếu User nhắc đến.
-        4. Loại bỏ các chi tiết vụn vặt (như câu chào, câu cảm ơn).
-        5. Kết quả trả về là một đoạn văn tóm tắt súc tích, bao gồm cả quá khứ và hiện tại.
+        OUTPUT FORMAT (Giữ nguyên tiêu đề):
+        [HỒ SƠ USER]: ...
+        [BỐI CẢNH HIỆN TẠI]: ...
+        [DỮ LIỆU ĐÃ CUNG CẤP]: ...
         `;
 
         const cfRes = await fetch(CF_WORKER_URL, {
@@ -92,9 +101,9 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: "Update Memory", // Prompt giả (không quan trọng)
-                systemPrompt: updateMemoryPrompt, // Prompt thật nằm ở đây
-                history: [] // Không cần history dài dòng
+                prompt: "Update Memory Structure", 
+                systemPrompt: updateMemoryPrompt, 
+                history: [] 
             })
         });
 
@@ -102,15 +111,14 @@ export default async function handler(req, res) {
         const newSummary = cfData.response || currentSummary;
 
         // ======================================================
-        // BƯỚC 3: TRẢ KẾT QUẢ VỀ CHO USER
+        // BƯỚC 3: TRẢ KẾT QUẢ
         // ======================================================
         return res.status(200).json({
             response: aiReply,
-            newSummary: newSummary // Gửi cái tóm tắt mới nhất về để lần sau dùng tiếp
+            newSummary: newSummary
         });
 
     } catch (error) {
-        console.error("API Error:", error);
         return res.status(500).json({ error: error.message });
     }
 }
