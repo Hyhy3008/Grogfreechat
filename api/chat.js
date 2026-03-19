@@ -1,4 +1,4 @@
-// File: api/chat.js (FINAL VERSION)
+// File: api/chat.js (FINAL VERSION - FULLY OPTIMIZED)
 
 export default async function handler(req, res) {
     // Chỉ chấp nhận method POST
@@ -26,8 +26,8 @@ export default async function handler(req, res) {
         // BƯỚC 1: GROQ TRẢ LỜI (LOGIC SUY LUẬN + KIẾN THỨC)
         // ======================================================
 
-        // Chỉ lấy 2 tin nhắn gần nhất làm ngữ cảnh ngắn hạn
-        const tinyHistory = (history || []).slice(-2); 
+        // SỬA: Tăng lên 10 câu gần nhất để Groq nhớ ngữ cảnh ngắn hạn tốt hơn (thay vì 2 câu)
+        const tinyHistory = (history || []).slice(-10); 
 
         const systemPrompt = `
         VAI TRÒ: Trợ lý AI Thông Minh & Chuyên Nghiệp.
@@ -68,16 +68,17 @@ export default async function handler(req, res) {
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.6, // Mức cân bằng giữa Sáng tạo và Chính xác
-                max_tokens: 1500
+                // Tăng nhẹ nhiệt độ để AI suy luận sáng tạo hơn, đặc biệt với Qwen
+                temperature: 0.7, 
+                max_tokens: 2048
             })
         });
 
         const groqData = await groqRes.json();
         
-        // Kiểm tra lỗi từ Groq (ví dụ sai tên model)
+        // Kiểm tra lỗi từ Groq (ví dụ sai tên model, rate limit)
         if (groqData.error) {
-            throw new Error(`Groq Error: ${groqData.error.message}`);
+            throw new Error(groqData.error.message); // Ném lỗi để Frontend tự động đổi model
         }
 
         const aiReply = groqData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
