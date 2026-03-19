@@ -42,7 +42,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 // 👇 Đã sửa lại model chuẩn của Groq để không bị lỗi
-                model: "llama-3.3-70b-versatile",
+                model: "moonshotai/kimi-k2-instruct-0905",
                 messages: [
                     { role: "system", content: systemPrompt },
                     ...tinyHistory,
