@@ -10,21 +10,28 @@ export default async function handler(req, res) {
         const targetLength = maxMemoryLength || 2000;
 
         // ======================================================
-        // BƯỚC 1: GROQ TRẢ LỜI (DÙNG NÃO BỘ + THAM KHẢO CONTEXT)
+        // BƯỚC 1: GROQ TRẢ LỜI (ĐÃ SỬA: TĂNG ĐỘ TỰ TIN)
         // ======================================================
         const tinyHistory = (history || []).slice(-2); 
 
         const systemPrompt = `
         VAI TRÒ: Trợ lý AI Thông Minh (Llama-3 70B).
 
-        --- 📝 LỊCH SỬ CHỦ ĐỀ ĐÃ NÓI (CONTEXT) ---
+        --- 📝 DỮ LIỆU BỘ NHỚ (SỰ THẬT TUYỆT ĐỐI) ---
         ${currentSummary || "Chưa có."}
-        ------------------------------------------
+        ----------------------------------------------
 
-        QUY TẮC:
-        1. Context ở trên chỉ là danh sách các từ khóa đã thảo luận.
-        2. KHI TRẢ LỜI: Hãy dùng **KIẾN THỨC CỦA CHÍNH BẠN** để giải thích, gợi ý. Đừng chỉ lặp lại Context.
-        3. KIỂM TRA TRÙNG LẶP: Nếu trong Context đã có "Phở", và User hỏi "Còn món gì khác?", hãy tự tìm món mới trong đầu bạn (ví dụ: Bún chả) để trả lời.
+        QUY TẮC XỬ LÝ:
+        1. **KIỂM TRA TRÍ NHỚ:** Nếu User hỏi "Tôi đã hỏi về cái gì?", "Tôi có nhắc đến X không?":
+           - Hãy nhìn ngay vào mục [KNOWLEDGE_GRAPH] hoặc [SHORT_TERM_LOG] ở trên.
+           - Nếu từ khóa xuất hiện -> TRẢ LỜI NGAY: "Có, bạn đã hỏi." (Đừng nghi ngờ).
+           - Ví dụ: Graph có chữ "Phở". User hỏi "Có bàn về Phở không?". -> Đáp: "Có."
+
+        2. **TRẢ LỜI KIẾN THỨC:**
+           - Với các câu hỏi "Ở đó có gì?", "Ăn gì?": Hãy dùng kiến thức của BẠN để trả lời. Bộ nhớ chỉ là để tránh lặp lại.
+           - Nếu bộ nhớ đã có "Phở", hãy gợi ý món khác (Bún chả, Bún riêu...).
+
+        3. **THÁI ĐỘ:** Tự tin, khẳng định, không xin lỗi vu vơ.
         `;
 
         const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -34,13 +41,14 @@ export default async function handler(req, res) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "moonshotai/kimi-k2-instruct-0905",
+                // 👇 Đã sửa lại model chuẩn của Groq để không bị lỗi
+                model: "llama-3.3-70b-versatile",
                 messages: [
                     { role: "system", content: systemPrompt },
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                temperature: 0.7,
+                temperature: 0.6, // Giảm nhiệt độ chút để nó bớt "ảo giác"
                 max_tokens: 1500
             })
         });
@@ -50,7 +58,7 @@ export default async function handler(req, res) {
 
 
         // ======================================================
-        // BƯỚC 2: CLOUDFLARE TÓM TẮT (DẠNG TỪ KHÓA - KEYWORDS ONLY)
+        // BƯỚC 2: CLOUDFLARE TÓM TẮT (GIỮ NGUYÊN CODE CỦA BẠN)
         // ======================================================
         
         const updateMemoryPrompt = `
