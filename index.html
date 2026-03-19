@@ -25,16 +25,15 @@
             position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); 
         }
         
-        /* HEADER CÓ NÚT RESET */
+        /* HEADER */
         .header { 
             padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; 
-            display: flex; align-items: center; justify-content: space-between; /* Căn đều 2 bên */
+            display: flex; align-items: center; justify-content: space-between; 
             height: 60px; z-index: 10; 
         }
         
         .header-title { font-weight: 600; font-size: 18px; color: #333; display: flex; align-items: center; gap: 8px; }
         
-        /* Nút Reset (Thùng rác) */
         .reset-btn {
             background: none; border: none; cursor: pointer; color: var(--danger-color);
             font-size: 18px; padding: 8px; border-radius: 50%;
@@ -42,7 +41,7 @@
         }
         .reset-btn:hover { background: #ffe5e5; }
         
-        /* KHUNG CHAT */
+        /* CHAT AREA */
         .chat-area { 
             flex: 1; padding: 15px; overflow-y: auto; 
             background: var(--bg-color); 
@@ -57,9 +56,7 @@
         }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
-        
-        /* Thông báo hệ thống (khi reset) */
-        .system-msg { align-self: center; font-size: 13px; color: #888; margin: 10px 0; font-style: italic; }
+        .system { align-self: center; background: none; border: none; color: #888; font-size: 13px; font-style: italic; margin: 10px 0; }
 
         /* LOADING */
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; }
@@ -86,14 +83,14 @@
         <div class="header-title">
             <i class="fas fa-robot" style="color: #0084ff;"></i> Trợ Lý AI
         </div>
-        <!-- Nút Reset Chat -->
-        <button class="reset-btn" onclick="resetChat()" title="Xóa bộ nhớ & Chat mới">
+        <button class="reset-btn" onclick="resetChat()" title="Xóa bộ nhớ">
             <i class="fas fa-trash-alt"></i>
         </button>
     </div>
 
     <div class="chat-area" id="chatBox">
         <div class="message ai">Xin chào! Mình có thể giúp gì cho bạn?</div>
+        <!-- Loading luôn nằm ở đây, không bao giờ được xóa nó -->
         <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
     </div>
 
@@ -113,28 +110,33 @@
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
     
-    // --- BỘ NHỚ ---
     let history = []; 
     let currentSummary = ""; 
 
     userInput.focus();
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
-    // HÀM RESET CHAT (XÓA BỘ NHỚ)
+    // --- HÀM RESET ĐÃ SỬA LỖI ---
     function resetChat() {
-        if (!confirm("Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện và bộ nhớ không?")) return;
+        if (!confirm("Bạn có chắc muốn xóa bộ nhớ không?")) return;
 
-        // 1. Xóa sạch biến bộ nhớ
+        // 1. Reset dữ liệu
         history = [];
         currentSummary = "";
-        
-        // 2. Làm sạch giao diện
-        chatBox.innerHTML = `
-            <div class="message ai">Đã xóa bộ nhớ! Chúng ta bắt đầu lại nhé.</div>
-            <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-        `;
 
-        // Debug để bạn yên tâm
+        // 2. Xóa giao diện AN TOÀN (Không xóa mất loading)
+        // Lấy tất cả các tin nhắn cũ
+        const messages = chatBox.querySelectorAll('.message');
+        messages.forEach(msg => msg.remove());
+
+        // 3. Thêm thông báo hệ thống
+        const sysDiv = document.createElement('div');
+        sysDiv.className = 'message system';
+        sysDiv.innerText = "Đã xóa bộ nhớ. Bắt đầu cuộc trò chuyện mới.";
+        
+        // Chèn vào trước loading (để loading luôn nằm cuối)
+        chatBox.insertBefore(sysDiv, loading);
+        
         console.log("Memory Cleared!");
     }
 
@@ -157,7 +159,7 @@
                 body: JSON.stringify({
                     message: text,
                     history: history,
-                    currentSummary: currentSummary // Gửi bộ nhớ hiện tại đi
+                    currentSummary: currentSummary
                 })
             });
 
@@ -169,7 +171,6 @@
             const aiText = data.response || "Lỗi phản hồi.";
             appendMessage(aiText, 'ai');
 
-            // Cập nhật bộ nhớ mới từ Server trả về
             if (data.newSummary) {
                 currentSummary = data.newSummary;
             }
@@ -189,6 +190,7 @@
         const div = document.createElement('div');
         div.className = `message ${sender}`;
         div.innerHTML = text.replace(/\n/g, "<br>");
+        // Luôn chèn TRƯỚC cái loading
         chatBox.insertBefore(div, loading);
         scrollToBottom();
     }
