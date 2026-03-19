@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Super Chat (Auto Switch)</title>
+    <title>AI Super Chat Pro</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
@@ -34,7 +34,14 @@
         .message { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-wrap: break-word; }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
-        .system { align-self: center; font-size: 12px; color: #888; background: #eee; padding: 4px 10px; border-radius: 10px; margin: 5px 0; }
+        
+        /* Tin nhắn hệ thống (Thông báo lỗi/chuyển mạng) */
+        .system { 
+            align-self: center; font-size: 12px; color: #666; 
+            background: rgba(0,0,0,0.05); padding: 5px 12px; 
+            border-radius: 12px; margin: 5px 0; text-align: center;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
         
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; border: 1px solid #e5e5ea; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
@@ -51,7 +58,7 @@
         .mem-status { font-size: 13px; color: #666; margin-top: 5px; display: flex; justify-content: space-between; }
         .memory-display { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: #333; min-height: 100px; }
 
-        /* TOGGLE SWITCH (Chung cho Voice và Auto-Switch) */
+        /* TOGGLE SWITCH */
         .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -75,7 +82,6 @@
         .big-mic-btn.recording { background: var(--danger-color); animation: pulse 1.5s infinite; }
         .wt-status { font-size: 14px; color: #666; font-weight: 500; }
 
-        /* Mode Switch (Nổi trên Header) */
         .mode-switch-voice { position: absolute; top: 60px; right: 15px; z-index: 20; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; font-size: 12px; }
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
@@ -100,56 +106,62 @@
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
-        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">⚙️ Cài đặt</button>
+        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">⚙️ Cài đặt & Bộ Nhớ</button>
     </div>
 
     <div class="content-area">
         <!-- TAB 1: CHAT -->
         <div id="chatPanel">
             <div class="chat-list" id="chatBox">
-                <div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn?</div>
+                <div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
             
             <div class="input-wrapper">
+                <!-- Chế độ Thường -->
                 <div class="normal-mode" id="normalInput">
                     <input type="text" id="userInput" class="chat-input" placeholder="Nhập tin nhắn..." autocomplete="off">
                     <button id="micBtn" class="action-btn" onclick="toggleNormalVoice()"><i class="fas fa-microphone"></i></button>
                     <button id="sendBtn" class="action-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                 </div>
+
+                <!-- Chế độ Bộ đàm -->
                 <div class="walkie-talkie-mode" id="wtInput">
                     <div class="wt-status" id="wtStatus">Nhấn giữ để nói...</div>
-                    <button id="bigMicBtn" class="big-mic-btn" onmousedown="startHold()" onmouseup="endHold()" ontouchstart="startHold()" ontouchend="endHold()"><i class="fas fa-microphone"></i></button>
+                    <button id="bigMicBtn" class="big-mic-btn" 
+                        onmousedown="startHold()" onmouseup="endHold()" 
+                        ontouchstart="startHold()" ontouchend="endHold()">
+                        <i class="fas fa-microphone"></i>
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- TAB 2: SETTINGS & MEMORY -->
         <div id="memoryPanel">
-            <!-- Box Cài đặt Model -->
             <div class="settings-box">
+                <!-- Toggle Auto Switch -->
                 <div class="toggle-row">
-                    <label class="setting-label" style="margin:0">🔄 Tự động đổi Model khi quá tải:</label>
+                    <label class="setting-label" style="margin:0; color:#000;">🔄 Tự động đổi Model khi quá tải:</label>
                     <label class="switch">
-                        <input type="checkbox" id="autoSwitchToggle" checked> <!-- Mặc định Bật -->
+                        <input type="checkbox" id="autoSwitchToggle" checked>
                         <span class="slider"></span>
                     </label>
                 </div>
-                <small style="color:#666; display:block; margin-bottom:15px;">Nếu model hiện tại bị lỗi (Rate Limit), hệ thống sẽ tự thử model tiếp theo trong danh sách.</small>
+                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác. Nếu tắt: Hệ thống sẽ báo bạn tự chọn.</small>
 
+                <!-- Model Select -->
                 <div class="setting-row">
                     <label class="setting-label">🤖 Chọn Mô Hình AI (Ưu tiên):</label>
                     <select id="modelSelect" class="full-width">
-                        <!-- DANH SÁCH MODEL CHUẨN -->
-                        <option value="llama-3.3-70b-versatile" selected>Llama 3.3 70B (Khuyên dùng)</option>
-                        <option value="llama-3.1-8b-instant">Llama 3.1 8B (Siêu tốc độ)</option>
+                        <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh nhất - Ổn định)</option>
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh nhất)</option>
+                        <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
+                        <option value="qwen/qwen3-32b">Qwen 3 32B (Hỗ trợ tiếng Việt tốt)</option>
                         <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
-                        <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B</option>
-                        <option value="qwen/qwen3-32b">Qwen 3 32B</option>
-                        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-                        <option value="gemma2-9b-it">Google Gemma 2</option>
-                        <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
-                        <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
+                        <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
+                        <option value="openai/gpt-oss-120b">GPT-OSS 120B (Model lớn)</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Model nhỏ)</option>
                         <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
                     </select>
                 </div>
@@ -185,7 +197,7 @@
     const modelSelect = document.getElementById('modelSelect');
     const autoSwitchToggle = document.getElementById('autoSwitchToggle');
     
-    // Voice Elements
+    // Mode Elements
     const normalInput = document.getElementById('normalInput');
     const wtInput = document.getElementById('wtInput');
     const bigMicBtn = document.getElementById('bigMicBtn');
@@ -195,7 +207,7 @@
     let currentSummary = ""; 
     let isWTMode = false; 
 
-    // --- VOICE SETUP ---
+    // --- VOICE LOGIC ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
     if (SpeechRecognition) {
@@ -232,20 +244,21 @@
         appendMessage(text, 'user');
         userInput.value = '';
         if(!isWTMode) { userInput.blur(); toggleInput(false); }
+        
+        // Hiện loading và ẩn nó đi nếu gọi đệ quy (để tránh lỗi giao diện)
         loading.style.display = 'block';
         scrollToBottom();
 
-        // Lấy model người dùng chọn làm điểm bắt đầu
         const selectedModel = modelSelect.value;
         const autoSwitch = autoSwitchToggle.checked;
         
-        // Gọi hàm gửi đệ quy
+        // Gọi hàm gửi với cơ chế Fallback
         await sendRequestWithFallback(text, selectedModel, autoSwitch);
         
         if(!isWTMode) toggleInput(true);
     }
 
-    // HÀM GỬI CÓ CƠ CHẾ FALLBACK (TỰ CHUYỂN MODEL)
+    // --- HÀM XỬ LÝ GỬI VÀ TỰ ĐỘNG CHUYỂN MODEL (QUAN TRỌNG) ---
     async function sendRequestWithFallback(text, currentModel, autoSwitch) {
         try {
             const limit = parseInt(memLimitInput.value) || 2000;
@@ -258,13 +271,13 @@
                     history: history,
                     currentSummary: currentSummary,
                     maxMemoryLength: limit,
-                    model: currentModel // Thử model này
+                    model: currentModel
                 })
             });
 
             const data = await res.json();
             
-            // Nếu lỗi từ Backend trả về
+            // Nếu Backend trả về lỗi (ví dụ 429, 500)
             if (data.error) {
                 throw new Error(data.error);
             }
@@ -285,42 +298,51 @@
             // --- XỬ LÝ LỖI ---
             console.warn(`Model ${currentModel} thất bại:`, error.message);
 
-            // Kiểm tra xem có phải lỗi Rate Limit (429) hoặc Quota không
-            const isRateLimit = error.message.includes("429") || error.message.includes("Rate limit") || error.message.includes("quota");
+            // Kiểm tra các từ khóa lỗi Rate Limit
+            const isOverloaded = error.message.includes("429") || 
+                                 error.message.includes("over capacity") || 
+                                 error.message.includes("Rate limit") ||
+                                 error.message.includes("quota");
 
-            if (isRateLimit && autoSwitch) {
-                // Tìm model tiếp theo trong danh sách
-                const nextModel = getNextModel(currentModel);
-                
-                if (nextModel) {
-                    // Thông báo nhẹ cho user biết
-                    appendSystemMessage(`⚠️ ${currentModel} quá tải. Đang chuyển sang ${nextModel}...`);
-                    // Gọi đệ quy lại với model mới
-                    await sendRequestWithFallback(text, nextModel, true);
-                    return; // Kết thúc hàm hiện tại để không chạy code bên dưới
+            if (isOverloaded) {
+                if (autoSwitch) {
+                    // Tìm model kế tiếp
+                    const nextModel = getNextModel(currentModel);
+                    if (nextModel) {
+                        // Hiển thị thông báo nhỏ dạng System (Không phải bong bóng đỏ)
+                        appendSystemMessage(`⚠️ ${currentModel} quá tải. Đang tự chuyển sang ${nextModel}...`);
+                        // Thử lại đệ quy
+                        await sendRequestWithFallback(text, nextModel, true);
+                        return; // Kết thúc để không chạy code phía dưới
+                    } else {
+                        loading.style.display = 'none';
+                        appendSystemMessage("❌ Tất cả server đều bận. Vui lòng thử lại sau.");
+                    }
                 } else {
-                    appendSystemMessage("❌ Tất cả các model đều đang bận. Vui lòng thử lại sau.");
+                    // Nếu tắt Auto Switch: Báo user tự đổi
+                    loading.style.display = 'none';
+                    appendSystemMessage(`⚠️ Mô hình ${currentModel} đang quá tải. Vui lòng chọn mô hình khác trong Cài đặt.`);
                 }
             } else {
-                // Lỗi khác hoặc tắt Auto Switch
-                appendMessage("Lỗi: " + error.message, 'ai');
+                // Lỗi khác (Mạng, Key...) -> Hiện lỗi như cũ
+                loading.style.display = 'none';
+                appendSystemMessage("❌ Lỗi kết nối: " + error.message);
             }
-            loading.style.display = 'none';
         }
     }
 
-    // Hàm tìm model tiếp theo trong danh sách
+    // Hàm lấy model kế tiếp trong danh sách
     function getNextModel(currentModel) {
         const options = Array.from(modelSelect.options).map(opt => opt.value);
-        const currentIndex = options.indexOf(currentModel);
-        
-        if (currentIndex !== -1 && currentIndex < options.length - 1) {
-            return options[currentIndex + 1];
+        const idx = options.indexOf(currentModel);
+        if (idx !== -1 && idx < options.length - 1) {
+            return options[idx + 1];
         }
-        return null; // Hết danh sách
+        // Nếu hết danh sách, quay lại đầu (hoặc trả null nếu muốn dừng)
+        return options[0]; 
     }
 
-    // Các hàm phụ trợ UI
+    // --- UI HELPERS ---
     function switchTab(tabName) {
         document.getElementById('chatPanel').style.display = tabName === 'chat' ? 'flex' : 'none';
         document.getElementById('memoryPanel').style.display = tabName === 'chat' ? 'none' : 'block';
@@ -328,9 +350,7 @@
         document.getElementById('tabMem').className = tabName === 'chat' ? 'tab-btn' : 'tab-btn active';
     }
 
-    function updateMemoryUI(text) {
-        memoryDisplay.innerText = text || "Chưa có dữ liệu...";
-    }
+    function updateMemoryUI(text) { memoryDisplay.innerText = text || "Chưa có dữ liệu..."; }
 
     function resetChat() {
         if (!confirm("Xóa toàn bộ?")) return;
@@ -346,6 +366,7 @@
         chatBox.insertBefore(div, loading); scrollToBottom();
     }
 
+    // Hàm thêm tin nhắn hệ thống (Nhỏ, xám, ở giữa)
     function appendSystemMessage(text) {
         const div = document.createElement('div'); div.className = `system`;
         div.innerText = text;
