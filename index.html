@@ -148,18 +148,21 @@
                         <span class="slider"></span>
                     </label>
                 </div>
-                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác. Nếu tắt: Hệ thống sẽ báo bạn tự chọn.</small>
+                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác và giữ cố định cho các lần sau.</small>
 
-                <!-- Model Select -->
                 <div class="setting-row">
                     <label class="setting-label">🤖 Chọn Mô Hình AI (Ưu tiên):</label>
                     <select id="modelSelect" class="full-width">
+                        <!-- DANH SÁCH CHUẨN ĐÃ LỌC -->
                         <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh nhất - Ổn định)</option>
                         <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh nhất)</option>
+                        
                         <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
-                        <option value="qwen/qwen3-32b">Qwen 3 32B (Hỗ trợ tiếng Việt tốt)</option>
+                        <option value="qwen/qwen3-32b">Qwen 3 32B (Trung Quốc)</option>
+                        
                         <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
                         <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
+                        
                         <option value="openai/gpt-oss-120b">GPT-OSS 120B (Model lớn)</option>
                         <option value="openai/gpt-oss-20b">GPT-OSS 20B (Model nhỏ)</option>
                         <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
@@ -244,21 +247,18 @@
         appendMessage(text, 'user');
         userInput.value = '';
         if(!isWTMode) { userInput.blur(); toggleInput(false); }
-        
-        // Hiện loading và ẩn nó đi nếu gọi đệ quy (để tránh lỗi giao diện)
         loading.style.display = 'block';
         scrollToBottom();
 
         const selectedModel = modelSelect.value;
         const autoSwitch = autoSwitchToggle.checked;
         
-        // Gọi hàm gửi với cơ chế Fallback
         await sendRequestWithFallback(text, selectedModel, autoSwitch);
         
         if(!isWTMode) toggleInput(true);
     }
 
-    // --- HÀM XỬ LÝ GỬI VÀ TỰ ĐỘNG CHUYỂN MODEL (QUAN TRỌNG) ---
+    // --- HÀM GỬI CÓ CƠ CHẾ AUTO-SWITCH & UPDATE DROPDOWN ---
     async function sendRequestWithFallback(text, currentModel, autoSwitch) {
         try {
             const limit = parseInt(memLimitInput.value) || 2000;
@@ -277,10 +277,7 @@
 
             const data = await res.json();
             
-            // Nếu Backend trả về lỗi (ví dụ 429, 500)
-            if (data.error) {
-                throw new Error(data.error);
-            }
+            if (data.error) throw new Error(data.error);
 
             // --- THÀNH CÔNG ---
             loading.style.display = 'none';
@@ -295,50 +292,42 @@
             history.push({ role: "assistant", content: aiText });
 
         } catch (error) {
-            // --- XỬ LÝ LỖI ---
+            // --- XỬ LÝ LỖI & CHUYỂN MẠNG ---
             console.warn(`Model ${currentModel} thất bại:`, error.message);
 
-            // Kiểm tra các từ khóa lỗi Rate Limit
             const isOverloaded = error.message.includes("429") || 
                                  error.message.includes("over capacity") || 
                                  error.message.includes("Rate limit") ||
                                  error.message.includes("quota");
 
-            if (isOverloaded) {
-                if (autoSwitch) {
-                    // Tìm model kế tiếp
-                    const nextModel = getNextModel(currentModel);
-                    if (nextModel) {
-                        // Hiển thị thông báo nhỏ dạng System (Không phải bong bóng đỏ)
-                        appendSystemMessage(`⚠️ ${currentModel} quá tải. Đang tự chuyển sang ${nextModel}...`);
-                        // Thử lại đệ quy
-                        await sendRequestWithFallback(text, nextModel, true);
-                        return; // Kết thúc để không chạy code phía dưới
-                    } else {
-                        loading.style.display = 'none';
-                        appendSystemMessage("❌ Tất cả server đều bận. Vui lòng thử lại sau.");
-                    }
+            if (isOverloaded && autoSwitch) {
+                // Tìm model kế tiếp
+                const nextModel = getNextModel(currentModel);
+                
+                if (nextModel) {
+                    appendSystemMessage(`⚠️ ${currentModel} quá tải. Tự động chuyển sang ${nextModel}...`);
+                    
+                    // QUAN TRỌNG: Cập nhật luôn Dropdown để lần sau dùng model mới này luôn
+                    modelSelect.value = nextModel; 
+
+                    // Gọi đệ quy thử lại ngay
+                    await sendRequestWithFallback(text, nextModel, true);
+                    return; 
                 } else {
-                    // Nếu tắt Auto Switch: Báo user tự đổi
                     loading.style.display = 'none';
-                    appendSystemMessage(`⚠️ Mô hình ${currentModel} đang quá tải. Vui lòng chọn mô hình khác trong Cài đặt.`);
+                    appendSystemMessage("❌ Tất cả server đều bận. Vui lòng thử lại sau.");
                 }
             } else {
-                // Lỗi khác (Mạng, Key...) -> Hiện lỗi như cũ
                 loading.style.display = 'none';
-                appendSystemMessage("❌ Lỗi kết nối: " + error.message);
+                appendSystemMessage("❌ Lỗi: " + error.message);
             }
         }
     }
 
-    // Hàm lấy model kế tiếp trong danh sách
     function getNextModel(currentModel) {
         const options = Array.from(modelSelect.options).map(opt => opt.value);
         const idx = options.indexOf(currentModel);
-        if (idx !== -1 && idx < options.length - 1) {
-            return options[idx + 1];
-        }
-        // Nếu hết danh sách, quay lại đầu (hoặc trả null nếu muốn dừng)
+        if (idx !== -1 && idx < options.length - 1) return options[idx + 1];
         return options[0]; 
     }
 
@@ -366,7 +355,6 @@
         chatBox.insertBefore(div, loading); scrollToBottom();
     }
 
-    // Hàm thêm tin nhắn hệ thống (Nhỏ, xám, ở giữa)
     function appendSystemMessage(text) {
         const div = document.createElement('div'); div.className = `system`;
         div.innerText = text;
