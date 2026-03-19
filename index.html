@@ -3,34 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Chatbot Pro + Voice</title>
+    <title>AI Voice Chat Pro</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* --- CẤU HÌNH GIAO DIỆN --- */
         :root { --primary-color: #0084ff; --bg-color: #f0f2f5; --danger-color: #ff3b30; --success-color: #28a745; }
         * { box-sizing: border-box; }
         
-        body { 
-            margin: 0; padding: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background: var(--bg-color); 
-            height: 100dvh; width: 100vw; 
-            display: flex; justify-content: center; 
-            overflow: hidden; 
-        }
-        
-        .app-container { 
-            width: 100%; max-width: 600px; height: 100%; 
-            background: white; display: flex; flex-direction: column; 
-            position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); 
-        }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); height: 100dvh; width: 100vw; display: flex; justify-content: center; overflow: hidden; }
+        .app-container { width: 100%; max-width: 600px; height: 100%; background: white; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
         
         /* HEADER */
-        .header { 
-            padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; 
-            display: flex; align-items: center; justify-content: space-between; 
-            height: 50px; z-index: 10; 
-        }
+        .header { padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: space-between; height: 50px; z-index: 10; }
         .header-title { font-weight: 600; font-size: 16px; color: #333; display: flex; align-items: center; gap: 8px; }
         .reset-btn { background: none; border: none; cursor: pointer; color: var(--danger-color); font-size: 16px; padding: 8px; }
 
@@ -44,49 +28,61 @@
         #chatPanel { height: 100%; display: flex; flex-direction: column; }
         #memoryPanel { height: 100%; padding: 20px; overflow-y: auto; background: #fff; display: none; }
 
-        /* MEMORY CONTROLS */
-        .mem-controls { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .mem-stat { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #555; }
-        .mem-input-group { display: flex; align-items: center; gap: 10px; }
-        .mem-input-group input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
-        
-        .memory-content {
-            background: #f8f9fa; border: 1px solid #e9ecef;
-            padding: 15px; border-radius: 8px;
-            font-family: monospace; font-size: 13px; line-height: 1.6;
-            white-space: pre-wrap; color: #333;
-        }
-
         /* CHAT UI */
         .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
         .message { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 16px; line-height: 1.5; word-wrap: break-word; }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
-        
         .typing { display: none; align-self: flex-start; background: white; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; width: fit-content; }
         .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-        /* INPUT AREA & VOICE BUTTON */
-        .input-area { padding: 10px 15px; background: white; border-top: 1px solid #c6c6c8; display: flex; align-items: center; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 15px); }
+        /* INPUT AREA */
+        .input-wrapper { background: white; border-top: 1px solid #c6c6c8; padding-bottom: env(safe-area-inset-bottom, 15px); }
+        
+        /* Chế độ thường */
+        .normal-mode { padding: 10px 15px; display: flex; align-items: center; gap: 10px; }
         input { flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #c6c6c8; font-size: 16px; outline: none; background: #f9f9f9; }
         input:focus { border-color: var(--primary-color); background: white; }
-        
-        /* Nút gửi & Nút Mic chung Style */
         .action-btn { width: 40px; height: 40px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        
         #sendBtn { background: var(--primary-color); color: white; }
-        #sendBtn:disabled { background: #ccc; }
-        
-        /* Style riêng cho Mic */
         #micBtn { background: #e4e6eb; color: #333; }
-        #micBtn.listening { background: var(--danger-color); color: white; animation: pulse 1.5s infinite; }
-        
+        #micBtn.active { background: var(--danger-color); color: white; animation: pulse 1.5s infinite; }
+
+        /* Chế độ Bộ đàm (Ẩn hiện) */
+        .walkie-talkie-mode {
+            display: none; justify-content: center; align-items: center; padding: 20px; flex-direction: column; gap: 10px;
+            background: #f8f9fa; border-top: 1px solid #ddd;
+        }
+        .big-mic-btn {
+            width: 80px; height: 80px; border-radius: 50%; border: none;
+            background: var(--primary-color); color: white; font-size: 30px;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.1s, background 0.3s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .big-mic-btn:active { transform: scale(0.9); background: var(--danger-color); }
+        .big-mic-btn.recording { background: var(--danger-color); animation: pulse 1.5s infinite; }
+        .wt-status { font-size: 14px; color: #666; font-weight: 500; }
+
+        /* Toggle Switch cho chế độ Bộ đàm */
+        .mode-switch {
+            position: absolute; top: 60px; right: 15px; z-index: 20;
+            background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; font-size: 12px;
+        }
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(14px); }
+
         @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
         }
     </style>
 </head>
@@ -96,6 +92,15 @@
     <div class="header">
         <div class="header-title"><i class="fas fa-brain" style="color: #0084ff;"></i> Super AI</div>
         <button class="reset-btn" onclick="resetChat()"><i class="fas fa-trash-alt"></i></button>
+    </div>
+
+    <!-- Toggle Chế độ Bộ đàm -->
+    <div class="mode-switch">
+        <span>Chế độ Bộ đàm</span>
+        <label class="switch">
+            <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+            <span class="slider"></span>
+        </label>
     </div>
 
     <div class="tabs">
@@ -110,27 +115,40 @@
                 <div class="message ai">Xin chào!</div>
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
-            <div class="input-area">
-                <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
-                <!-- Nút Mic Mới -->
-                <button id="micBtn" class="action-btn" onclick="toggleVoice()"><i class="fas fa-microphone"></i></button>
-                <!-- Nút Gửi -->
-                <button id="sendBtn" class="action-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            
+            <div class="input-wrapper">
+                <!-- Chế độ Thường -->
+                <div class="normal-mode" id="normalInput">
+                    <input type="text" id="userInput" placeholder="Nhập tin nhắn..." autocomplete="off">
+                    <button id="micBtn" class="action-btn" onclick="toggleNormalVoice()"><i class="fas fa-microphone"></i></button>
+                    <button id="sendBtn" class="action-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                </div>
+
+                <!-- Chế độ Bộ đàm (Hold to Talk) -->
+                <div class="walkie-talkie-mode" id="wtInput">
+                    <div class="wt-status" id="wtStatus">Nhấn giữ để nói...</div>
+                    <button id="bigMicBtn" class="big-mic-btn" 
+                        onmousedown="startHold()" onmouseup="endHold()" 
+                        ontouchstart="startHold()" ontouchend="endHold()">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- TAB MEMORY -->
         <div id="memoryPanel">
-            <div class="mem-controls">
-                <div class="mem-stat">
+            <!-- (Giữ nguyên phần Memory Panel cũ) -->
+            <div class="mem-controls" style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #555;">
                     <span>Độ dài: <b id="currLen" style="color:var(--success-color)">0</b></span>
                 </div>
-                <div class="mem-input-group">
+                <div style="display: flex; align-items: center; gap: 10px;">
                     <label>Giới hạn:</label>
-                    <input type="number" id="memLimitInput" value="2000" min="500" step="100">
+                    <input type="number" id="memLimitInput" value="2000" min="500" step="100" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center;">
                 </div>
             </div>
-            <div id="memoryDisplay" class="memory-content">
+            <div id="memoryDisplay" style="background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: #333;">
                 <div style="color:#999; font-style:italic;">Chưa có dữ liệu...</div>
             </div>
         </div>
@@ -142,68 +160,99 @@
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
-    const micBtn = document.getElementById('micBtn');
     const loading = document.getElementById('loading');
     const memoryDisplay = document.getElementById('memoryDisplay');
     const currLen = document.getElementById('currLen');
     const memLimitInput = document.getElementById('memLimitInput');
+
+    // Các phần tử mới
+    const normalInput = document.getElementById('normalInput');
+    const wtInput = document.getElementById('wtInput');
+    const bigMicBtn = document.getElementById('bigMicBtn');
+    const wtStatus = document.getElementById('wtStatus');
     
     let history = []; 
     let currentSummary = ""; 
+    let isWTMode = false; // Trạng thái chế độ bộ đàm
 
     // --- XỬ LÝ VOICE (WEB SPEECH API) ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
-    let isListening = false;
+    let finalTranscript = "";
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN'; // Ngôn ngữ Tiếng Việt
-        recognition.continuous = false; // Tự dừng khi nói xong câu
+        recognition.lang = 'vi-VN'; 
+        recognition.continuous = false; 
         recognition.interimResults = false;
 
-        recognition.onstart = function() {
-            isListening = true;
-            micBtn.classList.add('listening');
-            userInput.placeholder = "Đang nghe...";
-        };
-
-        recognition.onend = function() {
-            isListening = false;
-            micBtn.classList.remove('listening');
-            userInput.placeholder = "Nhập tin nhắn...";
-        };
-
         recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            userInput.value = transcript;
-            userInput.focus(); // Focus để User có thể sửa nếu nhận diện sai
+            const text = event.results[0][0].transcript;
+            
+            if (isWTMode) {
+                // Chế độ bộ đàm: Gửi luôn
+                userInput.value = text;
+                sendMessage();
+                wtStatus.innerText = "Đã gửi: " + text;
+                setTimeout(() => wtStatus.innerText = "Nhấn giữ để nói...", 2000);
+            } else {
+                // Chế độ thường: Điền vào ô input
+                userInput.value = text;
+                userInput.focus();
+            }
         };
-        
+
         recognition.onerror = function(event) {
             console.error("Lỗi Voice:", event.error);
-            isListening = false;
-            micBtn.classList.remove('listening');
-            alert("Không nhận diện được giọng nói. Vui lòng thử lại.");
+            if(isWTMode) wtStatus.innerText = "Lỗi nhận diện. Thử lại.";
         };
     } else {
-        micBtn.style.display = 'none'; // Ẩn nút nếu trình duyệt không hỗ trợ
-        console.log("Trình duyệt không hỗ trợ Web Speech API");
+        alert("Trình duyệt không hỗ trợ Voice Chat.");
     }
 
-    function toggleVoice() {
-        if (!recognition) {
-            alert("Trình duyệt của bạn không hỗ trợ tính năng này.");
-            return;
+    // --- CHUYỂN ĐỔI CHẾ ĐỘ ---
+    function toggleMode() {
+        const toggle = document.getElementById('modeToggle');
+        isWTMode = toggle.checked;
+
+        if (isWTMode) {
+            normalInput.style.display = 'none';
+            wtInput.style.display = 'flex';
+        } else {
+            normalInput.style.display = 'flex';
+            wtInput.style.display = 'none';
         }
-        if (isListening) {
+    }
+
+    // --- HÀM XỬ LÝ NHẤN GIỮ (HOLD TO TALK) ---
+    function startHold() {
+        if (!recognition) return;
+        recognition.start();
+        bigMicBtn.classList.add('recording');
+        wtStatus.innerText = "Đang nghe...";
+    }
+
+    function endHold() {
+        if (!recognition) return;
+        recognition.stop();
+        bigMicBtn.classList.remove('recording');
+        wtStatus.innerText = "Đang xử lý...";
+    }
+
+    // --- HÀM XỬ LÝ MIC THƯỜNG ---
+    function toggleNormalVoice() {
+        if (!recognition) return;
+        const btn = document.getElementById('micBtn');
+        if (btn.classList.contains('active')) {
             recognition.stop();
+            btn.classList.remove('active');
         } else {
             recognition.start();
+            btn.classList.add('active');
         }
     }
 
-    // --- CÁC HÀM CŨ (GIỮ NGUYÊN LOGIC) ---
+    // --- CÁC HÀM CŨ (LOGIC CHAT) ---
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
 
     function switchTab(tabName) {
@@ -259,8 +308,11 @@
 
         appendMessage(text, 'user');
         userInput.value = '';
-        userInput.blur();
-        toggleInput(false);
+        if(!isWTMode) userInput.blur(); 
+        
+        // Trong chế độ bộ đàm, không cần khóa nút mic
+        if(!isWTMode) toggleInput(false);
+        
         loading.style.display = 'block';
         scrollToBottom();
 
@@ -297,7 +349,7 @@
             loading.style.display = 'none';
             appendMessage("Lỗi kết nối", 'ai');
         } finally {
-            toggleInput(true);
+            if(!isWTMode) toggleInput(true);
         }
     }
 
@@ -312,7 +364,6 @@
     function toggleInput(enabled) {
         userInput.disabled = !enabled;
         sendBtn.disabled = !enabled;
-        micBtn.disabled = !enabled; // Khóa luôn nút Mic khi đang gửi
     }
 
     function scrollToBottom() {
