@@ -7,6 +7,12 @@ export default async function handler(req, res) {
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
+    // ── CỔNG LỌC: áp dụng cho MỌI output từ model trước khi dùng ─────────
+    const stripThink = (text = "") => {
+        if (!text.includes("<think>")) return text.trim();
+        return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    };
+
     try {
         const { message, history, currentSummary, maxMemoryLength, model, historyLimit } = req.body;
 
@@ -40,7 +46,7 @@ export default async function handler(req, res) {
 
         const aiReplyRaw   = chatData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
         // Strip <think> để memory không bị bloat — frontend vẫn nhận bản gốc có <think>
-        const aiReplyClean = aiReplyRaw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+        const aiReplyClean = stripThink(aiReplyRaw);
 
         // ── BƯỚC 2: MEMORY — đầy đủ cả cặp hội thoại ────────────────────
 
@@ -52,7 +58,7 @@ export default async function handler(req, res) {
         const historyFull    = (history || []).length >= targetHistoryLimit;
         const oldestPair     = historyFull ? (history || []).slice(0, 2) : [];
         const evictedContext = oldestPair.length === 2
-            ? `\n\n--- TIN NHẮN SẮP BỊ XÓA (trích thông tin quan trọng trước khi mất) ---\nUser: "${oldestPair[0]?.content}"\nAI: "${(oldestPair[1]?.content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim()}"`
+            ? `\n\n--- TIN NHẮN SẮP BỊ XÓA (trích thông tin quan trọng trước khi mất) ---\nUser: "${oldestPair[0]?.content}"\nAI: "${stripThink(oldestPair[1]?.content || "")}"`
             : "";
 
         const memoryMode = isOverBudget
@@ -67,7 +73,11 @@ export default async function handler(req, res) {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: targetModel,
+                    // Memory KHÔNG dùng reasoning model (Qwen, DeepSeek...) vì chúng
+                    // luôn sinh <think> làm bloat bộ não dù đã strip
+                    model: targetModel.includes("qwen") || targetModel.includes("deepseek")
+                        ? "llama-3.3-70b-versatile"
+                        : targetModel,
                     temperature: 0.2,
                     max_tokens: 1024,
                     messages: [
@@ -88,7 +98,7 @@ export default async function handler(req, res) {
 
             const memRaw = memData.choices?.[0]?.message?.content || "";
             // Strip <think> khỏi memory output trước khi lưu vào bộ não
-            const memContent = memRaw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+            const memContent = stripThink(memRaw);
             if (memContent) {
                 newSummary = memContent.length <= targetLength
                     ? memContent
