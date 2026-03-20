@@ -15,13 +15,13 @@
         
         /* HEADER */
         .header { padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: space-between; height: 60px; flex-shrink: 0; z-index: 10; }
-        .header-left { font-weight: 600; font-size: 18px; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
+        .header-title { font-weight: 600; font-size: 18px; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
         .header-right { display: flex; gap: 10px; }
         .header-btn { background: #f0f2f5; border: none; cursor: pointer; color: #555; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .header-btn:hover { background: #e4e6eb; color: #000; }
         .header-btn.active { background: var(--success-color); color: white; }
 
-        /* TABS (3 TAB) */
+        /* TABS */
         .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; flex-shrink: 0; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; font-size: 13px; }
         .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
@@ -42,7 +42,7 @@
             display: none; /* Flex khi active */
             flex-direction: column; 
             background: #fff; 
-            padding: 0; /* Full viền */
+            padding: 0; 
             overflow: hidden;
         }
 
@@ -63,7 +63,7 @@
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(14px); }
 
-        /* --- STYLES CHO MEMORY (Tab 3) --- */
+        /* --- STYLES CHO MEMORY (Tab 3 - FIX SCROLL) --- */
         .memory-header {
             background: #eee; padding: 10px 15px; font-weight: bold; font-size: 13px; color: #555; 
             border-bottom: 1px solid #ddd; flex-shrink: 0; display: flex; justify-content: space-between;
@@ -145,6 +145,7 @@
                 <div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
+            
             <div class="input-wrapper">
                 <div class="normal-mode" id="normalInput">
                     <input type="text" id="userInput" class="chat-input" placeholder="Nhập tin nhắn..." autocomplete="off">
@@ -213,6 +214,7 @@
 
 <script>
     const API_URL = "/api/chat";
+    // Elements
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -234,9 +236,45 @@
     const wtStatus = document.getElementById('wtStatus');
     const wtToggleBtn = document.getElementById('wtToggleBtn');
 
+    // --- BIẾN TRẠNG THÁI ---
     let history = []; 
     let currentSummary = ""; 
     let isWTMode = false; 
+
+    // --- KHỞI TẠO TỪ LOCALSTORAGE ---
+    function loadFromStorage() {
+        try {
+            const savedHistory = localStorage.getItem('chat_history');
+            const savedMemory = localStorage.getItem('chat_memory');
+            
+            if (savedHistory) {
+                history = JSON.parse(savedHistory);
+                // Xóa tin nhắn mặc định nếu có history cũ
+                if(history.length > 0) chatBox.innerHTML = ""; 
+                // Render lại tin nhắn
+                history.forEach(msg => {
+                    // Mẹo: Dùng hàm render có sẵn, thêm tham số true để xử lý reasoning
+                    if(msg.role === 'assistant') appendMessage(msg.content, 'ai', true, false); 
+                    else appendMessage(msg.content, 'user', false, false);
+                });
+                chatBox.appendChild(loading); // Đưa loading xuống cuối
+            }
+            
+            if (savedMemory) {
+                currentSummary = savedMemory;
+                updateMemoryUI(currentSummary);
+            }
+        } catch (e) { console.error("Load storage error", e); }
+    }
+
+    // --- HÀM LƯU ---
+    function saveState() {
+        localStorage.setItem('chat_history', JSON.stringify(history));
+        localStorage.setItem('chat_memory', currentSummary);
+    }
+
+    // GỌI HÀM LOAD KHI TRANG TẢI XONG
+    window.addEventListener('load', loadFromStorage);
 
     // --- VOICE LOGIC ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -301,9 +339,18 @@
             loading.style.display = 'none';
             appendMessage(data.response, 'ai', true);
 
-            if (data.newSummary) { currentSummary = data.newSummary; updateMemoryUI(currentSummary); }
+            // CẬP NHẬT BIẾN & GIAO DIỆN
+            if (data.newSummary) { 
+                currentSummary = data.newSummary; 
+                updateMemoryUI(currentSummary); 
+            }
+            
+            // ĐẨY VÀO LỊCH SỬ
             history.push({ role: "user", content: text });
             history.push({ role: "assistant", content: data.response });
+            
+            // LƯU VÀO Ổ CỨNG NGAY LẬP TỨC
+            saveState();
 
         } catch (error) {
             const isOverloaded = error.message.includes("429") || error.message.includes("over capacity") || error.message.includes("Rate limit");
@@ -327,7 +374,8 @@
         return (idx !== -1 && idx < opts.length - 1) ? opts[idx + 1] : opts[0];
     }
 
-    function appendMessage(text, sender, parseThink = false) {
+    // appendMessage có thêm tham số 'animate' để không cuộn khi load lại trang
+    function appendMessage(text, sender, parseThink = false, animate = true) {
         const div = document.createElement('div'); div.className = `message ${sender}`;
         if (sender === 'ai' && parseThink) {
             const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
@@ -345,7 +393,8 @@
                 `;
             } else { div.innerHTML = text.replace(/\n/g, "<br>"); }
         } else { div.innerHTML = text.replace(/\n/g, "<br>"); }
-        chatBox.insertBefore(div, loading); scrollToBottom();
+        chatBox.insertBefore(div, loading); 
+        if(animate) scrollToBottom();
     }
 
     function appendSystemMessage(text) {
@@ -353,19 +402,15 @@
         chatBox.insertBefore(div, loading); scrollToBottom();
     }
 
-    // --- SWITCH TABS (3 TAB LOGIC) ---
     function switchTab(name) {
-        // Ẩn tất cả Panel
         document.getElementById('chatPanel').style.display = 'none';
         document.getElementById('settingsPanel').style.display = 'none';
         document.getElementById('memoryPanel').style.display = 'none';
         
-        // Bỏ active tất cả nút
         document.getElementById('tabChat').className = 'tab-btn';
         document.getElementById('tabSet').className = 'tab-btn';
         document.getElementById('tabMem').className = 'tab-btn';
 
-        // Hiện Panel được chọn
         if (name === 'chat') {
             document.getElementById('chatPanel').style.display = 'flex';
             document.getElementById('tabChat').classList.add('active');
@@ -373,7 +418,7 @@
             document.getElementById('settingsPanel').style.display = 'block';
             document.getElementById('tabSet').classList.add('active');
         } else if (name === 'memory') {
-            document.getElementById('memoryPanel').style.display = 'flex'; // Dùng Flex để giãn full
+            document.getElementById('memoryPanel').style.display = 'flex';
             document.getElementById('tabMem').classList.add('active');
         }
     }
@@ -385,10 +430,21 @@
     }
 
     function resetChat() {
-        if (!confirm("Xóa toàn bộ?")) return;
-        history = []; currentSummary = ""; updateMemoryUI("");
-        chatBox.querySelectorAll('.message, .system').forEach(m => m.remove());
-        appendSystemMessage("Đã reset bộ nhớ.");
+        if (!confirm("Xóa toàn bộ cuộc trò chuyện? (Không thể khôi phục)")) return;
+        
+        // Reset Biến
+        history = []; 
+        currentSummary = ""; 
+        updateMemoryUI("");
+        
+        // Xóa Storage
+        localStorage.removeItem('chat_history');
+        localStorage.removeItem('chat_memory');
+
+        // Reset UI
+        chatBox.innerHTML = '<div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>';
+        chatBox.appendChild(loading);
+        
         switchTab('chat');
     }
 
