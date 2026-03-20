@@ -76,10 +76,31 @@ QUY TẮC XỬ LÝ (TUÂN THỦ 100%):
 
         const aiReply = groqData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
 
-        // ── BƯỚC 2: GROQ CẬP NHẬT BỘ NÃO (thay thế CF Worker) ────────────
+        // ── BƯỚC 2: CẬP NHẬT BỘ NÃO với lifecycle đúng ──────────────────
+        //
+        // Logic:
+        // - Bộ não có ngân sách cố định = targetLength chars
+        // - Khi history vượt historyLimit, tin cũ nhất được "consolidate" vào bộ não trước khi xóa
+        // - Bộ não PHẢI nén lại nếu gần đầy: ưu tiên USER_PROFILE > KNOWLEDGE_GRAPH > LOG gần
+        //   và LÀM MỜ / XÓA chi tiết cũ trong SHORT_TERM_LOG
+        // - Kết quả luôn <= targetLength chars (model được nhắc hard limit)
 
         let newSummary = currentSummary;
         let memoryUpdated = true;
+
+        // Kiểm tra xem có tin nhắn nào sắp bị đẩy ra khỏi short-term không
+        // history hiện tại chưa push tin mới — nếu history.length >= historyLimit thì
+        // tin đầu tiên (oldest) sắp bị slice ra
+        const historyFull = (history || []).length >= targetHistoryLimit;
+        const oldestPair  = historyFull ? (history || []).slice(0, 2) : []; // [user, assistant] cũ nhất
+
+        // Tóm tắt cặp tin sắp bị xóa (nếu có) để inject vào prompt consolidation
+        const evictedContext = oldestPair.length === 2
+            ? `\nTIN NHẮN SẮP BỊ XÓA KHỎI SHORT-TERM (cần consolidate):\nUser: "${oldestPair[0]?.content}"\nAI: "${oldestPair[1]?.content}"`
+            : "";
+
+        const currentBrainSize = (currentSummary || "").length;
+        const budgetUsedPct    = Math.round((currentBrainSize / targetLength) * 100);
 
         try {
             const memRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -90,49 +111,51 @@ QUY TẮC XỬ LÝ (TUÂN THỦ 100%):
                 },
                 body: JSON.stringify({
                     model: MEMORY_MODEL,
-                    temperature: 0.3, // Thấp hơn cho tác vụ tóm tắt — ít sáng tạo, ổn định hơn
+                    temperature: 0.2,
                     max_tokens: 1024,
                     messages: [
                         {
                             role: "system",
-                            content: `Nhiệm vụ: Quản lý và Cập nhật Bộ nhớ (Memory Manager).
-Mục tiêu: Lưu trữ thông tin dưới dạng TỪ KHÓA để tiết kiệm dung lượng.
+                            content: `Bạn là Memory Manager. Nhiệm vụ: duy trì bộ nhớ dài hạn trong giới hạn ${targetLength} ký tự.
 
-QUY TẮC CẬP NHẬT (NGHIÊM NGẶT):
-1. === KNOWLEDGE_GRAPH ===:
-   - Chỉ lưu DANH TỪ RIÊNG (Địa điểm, Món ăn, Tên người, Khái niệm quan trọng).
-   - Định dạng: Liệt kê ngăn cách bằng dấu phẩy.
-   - NGUYÊN TẮC: CỘNG DỒN (Append Only). Giữ từ khóa cũ, thêm từ khóa mới.
-2. === USER_PROFILE ===: Ghi lại thông tin cá nhân User (Tên, Sở thích...).
-3. === CURRENT_GOAL ===: Mục tiêu hiện tại của User nếu có.
-4. === SHORT_TERM_LOG ===: Ghi lại hành động chính của User theo dòng thời gian.
+NGÂN SÁCH: ${currentBrainSize}/${targetLength} ký tự (${budgetUsedPct}% đã dùng).
 
-YÊU CẦU ĐỘ DÀI: Tổng cộng không quá ${targetLength} ký tự.
-CHỈ trả về đúng 4 section theo format, KHÔNG thêm bất kỳ text nào khác.
+QUY TẮC BẮT BUỘC:
+1. Output PHẢI <= ${targetLength} ký tự. Đây là hard limit tuyệt đối.
+2. Ưu tiên giữ theo thứ tự: USER_PROFILE > KNOWLEDGE_GRAPH > log gần đây > log cũ.
+3. SHORT_TERM_LOG: chỉ giữ tối đa 5 dòng gần nhất. Các dòng cũ hơn → XÓA hoặc gộp thành 1 dòng tóm tắt.
+4. KNOWLEDGE_GRAPH: nếu đầy, gộp các từ khóa cùng chủ đề, xóa từ khóa ít quan trọng.
+5. Nếu có "TIN NHẮN SẮP BỊ XÓA" bên dưới → trích xuất thông tin quan trọng từ đó trước khi nó mất.
+6. CHỈ trả về 4 section, KHÔNG thêm text nào khác ngoài format.
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (bắt buộc):
 === USER_PROFILE ===
+(thông tin user: tên, sở thích, nghề nghiệp...)
 === CURRENT_GOAL ===
+(mục tiêu hiện tại nếu có, nếu không có thì để trống)
 === KNOWLEDGE_GRAPH ===
-=== SHORT_TERM_LOG ===`
+(từ khóa quan trọng, cách nhau bởi dấu phẩy)
+=== SHORT_TERM_LOG ===
+(tối đa 5 dòng, mỗi dòng bắt đầu bằng "- ")`
                         },
                         {
                             role: "user",
-                            content: `DỮ LIỆU CŨ:\n${currentSummary || '(trống)'}\n\nHỘI THOẠI MỚI:\nUser: "${message}"\nAI: "${aiReply}"\n\nHãy cập nhật và trả về bộ nhớ mới.`
+                            content: `BỘ NÃO HIỆN TẠI:\n${currentSummary || '(trống)'}${evictedContext}\n\nHỘI THOẠI VỪA XẢY RA:\nUser: "${message}"\nAI: "${aiReply}"\n\nHãy cập nhật bộ não. Nhớ: output <= ${targetLength} ký tự.`
                         }
                     ]
                 })
             });
 
             const memData = await memRes.json();
+            if (memData.error) throw new Error(memData.error.message);
 
-            if (memData.error) {
-                throw new Error(memData.error.message);
-            }
+            const memContent = memData.choices?.[0]?.message?.content?.trim();
 
-            const memContent = memData.choices?.[0]?.message?.content;
             if (memContent) {
-                newSummary = memContent;
+                // Hard-clamp: nếu model vẫn vượt limit, cắt cứng (safety net)
+                newSummary = memContent.length <= targetLength
+                    ? memContent
+                    : memContent.slice(0, targetLength);
             } else {
                 memoryUpdated = false;
                 console.warn("Memory model returned empty, keeping old summary.");
