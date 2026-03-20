@@ -6,8 +6,8 @@ export default async function handler(req, res) {
     }
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    const CF_WORKER_URL = "https://muddy-paper-3417.nhatanhd50.workers.dev/";
-    const CF_API_KEY = "12345678";
+    // CF Worker đã bị loại bỏ — memory summarization dùng Groq model nhỏ riêng
+    const MEMORY_MODEL = "llama-3.1-8b-instant"; // Nhanh, nhẹ, đủ dùng cho tóm tắt
 
     try {
         const {
@@ -76,75 +76,70 @@ QUY TẮC XỬ LÝ (TUÂN THỦ 100%):
 
         const aiReply = groqData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
 
-        // ── BƯỚC 2: CLOUDFLARE CẬP NHẬT BỘ NÃO ───────────────────────────
+        // ── BƯỚC 2: GROQ CẬP NHẬT BỘ NÃO (thay thế CF Worker) ────────────
 
-        const updateMemoryPrompt = `
-Nhiệm vụ: Quản lý và Cập nhật Bộ nhớ (Memory Manager).
-Mục tiêu: Lưu trữ thông tin dưới dạng TỪ KHÓA để tiết kiệm dung lượng.
-
-DỮ LIỆU CŨ:
-${currentSummary || ''}
-
-HỘI THOẠI MỚI:
-User: "${message}" -> AI: "${aiReply}"
-
-QUY TẮC CẬP NHẬT (NGHIÊM NGẶT):
-
-1. === KNOWLEDGE_GRAPH ===:
-   - Chỉ lưu DANH TỪ RIÊNG (Địa điểm, Món ăn, Tên người, Khái niệm quan trọng).
-   - Định dạng: Liệt kê ngăn cách bằng dấu phẩy.
-   - NGUYÊN TẮC: CỘNG DỒN (Append Only). Giữ từ khóa cũ, thêm từ khóa mới.
-
-2. === USER_PROFILE ===:
-   - Ghi lại thông tin cá nhân User (Tên, Sở thích...).
-
-3. === SHORT_TERM_LOG ===:
-   - Ghi lại hành động chính của User theo dòng thời gian.
-
-YÊU CẦU ĐỘ DÀI: Tổng cộng không quá ${targetLength} ký tự.
-
-OUTPUT FORMAT (Giữ nguyên tiêu đề):
-=== USER_PROFILE ===
-=== CURRENT_GOAL ===
-=== KNOWLEDGE_GRAPH ===
-=== SHORT_TERM_LOG ===
-`;
-
-        // FIX: bọc Cloudflare trong try/catch riêng, trả flag memoryUpdated
         let newSummary = currentSummary;
         let memoryUpdated = true;
 
         try {
-            const cfRes = await fetch(CF_WORKER_URL, {
+            const memRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${CF_API_KEY}`,
+                    "Authorization": `Bearer ${GROQ_API_KEY}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    prompt: "Update Compact Memory",
-                    systemPrompt: updateMemoryPrompt,
-                    history: []
+                    model: MEMORY_MODEL,
+                    temperature: 0.3, // Thấp hơn cho tác vụ tóm tắt — ít sáng tạo, ổn định hơn
+                    max_tokens: 1024,
+                    messages: [
+                        {
+                            role: "system",
+                            content: `Nhiệm vụ: Quản lý và Cập nhật Bộ nhớ (Memory Manager).
+Mục tiêu: Lưu trữ thông tin dưới dạng TỪ KHÓA để tiết kiệm dung lượng.
+
+QUY TẮC CẬP NHẬT (NGHIÊM NGẶT):
+1. === KNOWLEDGE_GRAPH ===:
+   - Chỉ lưu DANH TỪ RIÊNG (Địa điểm, Món ăn, Tên người, Khái niệm quan trọng).
+   - Định dạng: Liệt kê ngăn cách bằng dấu phẩy.
+   - NGUYÊN TẮC: CỘNG DỒN (Append Only). Giữ từ khóa cũ, thêm từ khóa mới.
+2. === USER_PROFILE ===: Ghi lại thông tin cá nhân User (Tên, Sở thích...).
+3. === CURRENT_GOAL ===: Mục tiêu hiện tại của User nếu có.
+4. === SHORT_TERM_LOG ===: Ghi lại hành động chính của User theo dòng thời gian.
+
+YÊU CẦU ĐỘ DÀI: Tổng cộng không quá ${targetLength} ký tự.
+CHỈ trả về đúng 4 section theo format, KHÔNG thêm bất kỳ text nào khác.
+
+OUTPUT FORMAT:
+=== USER_PROFILE ===
+=== CURRENT_GOAL ===
+=== KNOWLEDGE_GRAPH ===
+=== SHORT_TERM_LOG ===`
+                        },
+                        {
+                            role: "user",
+                            content: `DỮ LIỆU CŨ:\n${currentSummary || '(trống)'}\n\nHỘI THOẠI MỚI:\nUser: "${message}"\nAI: "${aiReply}"\n\nHãy cập nhật và trả về bộ nhớ mới.`
+                        }
+                    ]
                 })
             });
 
-            if (!cfRes.ok) {
-                throw new Error(`CF Worker HTTP ${cfRes.status}`);
+            const memData = await memRes.json();
+
+            if (memData.error) {
+                throw new Error(memData.error.message);
             }
 
-            const cfData = await cfRes.json();
-
-            if (cfData.response) {
-                newSummary = cfData.response;
+            const memContent = memData.choices?.[0]?.message?.content;
+            if (memContent) {
+                newSummary = memContent;
             } else {
-                // CF trả về rỗng — giữ cũ, báo warning
                 memoryUpdated = false;
-                console.warn("CF Worker returned empty response, keeping old summary.");
+                console.warn("Memory model returned empty, keeping old summary.");
             }
-        } catch (cfError) {
-            // FIX: log lỗi CF, không crash toàn request, báo frontend
+        } catch (memError) {
             memoryUpdated = false;
-            console.error("Cloudflare Worker error:", cfError.message);
+            console.error("Memory update error:", memError.message);
         }
 
         // ── BƯỚC 3: TRẢ KẾT QUẢ ──────────────────────────────────────────
