@@ -26,24 +26,68 @@
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; }
         .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
 
-        /* PANELS */
+        /* CONTENT AREA */
         .content-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        #chatPanel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        #memoryPanel { flex: 1; display: none; flex-direction: column; background: #fff; overflow: hidden; padding: 15px; }
+        
+        /* PANEL CHAT */
+        #chatPanel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* --- PANEL MEMORY (FIXED SCROLLING) --- */
+        #memoryPanel { 
+            height: 100%; 
+            padding: 15px; 
+            background: #fff; 
+            display: none; /* JS sẽ đổi thành flex */
+            flex-direction: column; 
+            overflow: hidden; /* Chặn tràn container cha */
+        }
 
-        /* SETTINGS UI */
-        .settings-container { flex-shrink: 0; margin-bottom: 15px; }
+        /* KHUNG SETTINGS (CỐ ĐỊNH) */
+        .settings-container {
+            flex-shrink: 0; /* Không bị co lại */
+            margin-bottom: 15px;
+        }
         .settings-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; }
+        
+        /* KHUNG HIỂN THỊ LOG (CÓ SCROLL) */
+        .memory-wrapper {
+            flex: 1; /* Tự động giãn ra chiếm hết chiều cao còn lại */
+            display: flex; 
+            flex-direction: column;
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            overflow: hidden; 
+            min-height: 0; /* QUAN TRỌNG: Fix lỗi Flexbox không hiện scroll */
+        }
+        .memory-header {
+            background: #eee; padding: 8px 12px; font-weight: bold; font-size: 13px; color: #555; 
+            border-bottom: 1px solid #ddd; flex-shrink: 0;
+        }
+        .memory-display { 
+            flex: 1; /* Giãn hết chiều cao wrapper */
+            background: #1e1e1e; color: #0f0; 
+            padding: 15px; 
+            font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; 
+            white-space: pre-wrap; 
+            overflow-y: auto; /* THANH CUỘN Ở ĐÂY */
+            padding-bottom: 40px; /* Thêm khoảng trống đáy để dễ đọc */
+        }
+
+        /* SETTINGS UI DETAILS */
         .setting-row { margin-bottom: 15px; }
         .setting-label { display: block; font-weight: 600; font-size: 13px; color: #555; margin-bottom: 5px; }
         select.full-width { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white; font-size: 14px; outline: none; }
         .limit-input-group { display: flex; align-items: center; gap: 10px; }
         .limit-input-group input { width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
         
-        /* Memory Display */
-        .memory-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e5e5ea; border-radius: 8px; }
-        .memory-header { background: #eee; padding: 8px 12px; font-size: 13px; font-weight: bold; color: #555; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
-        .memory-display { flex: 1; background: #1e1e1e; color: #0f0; padding: 15px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-y: auto; }
+        /* Toggle Switch */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(14px); }
 
         /* CHAT UI */
         .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
@@ -52,7 +96,7 @@
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
         .system { align-self: center; font-size: 12px; color: #666; background: rgba(0,0,0,0.05); padding: 5px 12px; border-radius: 12px; margin: 5px 0; text-align: center; }
 
-        /* Reasoning UI */
+        /* REASONING STYLE */
         .reasoning-box { margin-bottom: 8px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #fafafa; }
         .reasoning-header { background: #f0f0f0; padding: 6px 10px; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .reasoning-content { padding: 10px; font-family: monospace; font-size: 13px; color: #444; border-top: 1px solid #ddd; background: white; white-space: pre-wrap; display: none; }
@@ -81,15 +125,6 @@
         .big-mic-btn.recording { background: var(--danger-color); animation: pulse 1.5s infinite; }
         .wt-status { font-size: 14px; color: #666; font-weight: 500; }
 
-        /* Toggle */
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary-color); }
-        input:checked + .slider:before { transform: translateX(14px); }
-
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
     </style>
 </head>
@@ -106,7 +141,7 @@
 
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
-        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">⚙️ Cài đặt</button>
+        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Bộ Nhớ</button>
     </div>
 
     <div class="content-area">
@@ -130,7 +165,7 @@
             </div>
         </div>
 
-        <!-- TAB 2: SETTINGS & MEMORY -->
+        <!-- TAB 2: SETTINGS & MEMORY (LAYOUT FIXED) -->
         <div id="memoryPanel">
             <div class="settings-container">
                 <div class="settings-box">
@@ -144,34 +179,35 @@
                         <select id="modelSelect" class="full-width">
                             <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh - Ổn định)</option>
                             <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh)</option>
-                            <option value="qwen/qwen3-32b">Qwen 3 32B (Có Thinking)</option>
+                            <option value="qwen/qwen3-32b">Qwen 3 32B (Có suy luận)</option>
+                            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
                             <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
+                            <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
                             <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
-                            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B</option>
+                            <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
+                            <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
                         </select>
                     </div>
                     
-                    <!-- CÀI ĐẶT SHORT TERM LOG MỚI THÊM VÀO ĐÂY -->
                     <div class="setting-row">
-                        <label class="setting-label">📜 Lịch sử ngắn hạn (Short-term):</label>
+                        <label class="setting-label">📜 Lịch sử ngắn hạn (Tin nhắn):</label>
                         <div class="limit-input-group">
                             <input type="number" id="historyLimitInput" value="10" min="2" max="50">
-                            <span>tin nhắn gần nhất</span>
+                            <span>tin</span>
                         </div>
-                        <small style="color:#666; font-size:12px; display:block; margin-top:5px;">Số lượng tin nhắn gửi kèm để AI hiểu ngữ cảnh liền mạch.</small>
                     </div>
 
                     <div class="setting-row">
-                        <label class="setting-label">🧠 Giới hạn Bộ nhớ (Long-term):</label>
+                        <label class="setting-label">🧠 Giới hạn Bộ nhớ (Ký tự):</label>
                         <div class="limit-input-group">
                             <input type="number" id="memLimitInput" value="2000" min="500" step="100">
-                            <span>ký tự</span>
+                            <span>chars</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Memory Display -->
+            <!-- KHUNG HIỂN THỊ BỘ NHỚ (FLEX 1 + SCROLL) -->
             <div class="memory-wrapper">
                 <div class="memory-header">
                     <span>NỘI DUNG NÃO BỘ</span>
@@ -191,11 +227,11 @@
     const micBtn = document.getElementById('micBtn');
     const loading = document.getElementById('loading');
     
-    // Settings Elements
+    // Elements Tab 2
     const memoryDisplay = document.getElementById('memoryDisplay');
     const currLen = document.getElementById('currLen');
     const memLimitInput = document.getElementById('memLimitInput');
-    const historyLimitInput = document.getElementById('historyLimitInput'); // Mới
+    const historyLimitInput = document.getElementById('historyLimitInput');
     const modelSelect = document.getElementById('modelSelect');
     const autoSwitchToggle = document.getElementById('autoSwitchToggle');
     
@@ -256,17 +292,15 @@
 
     async function sendRequestWithFallback(text, currentModel, autoSwitch) {
         try {
-            const memLimit = parseInt(memLimitInput.value) || 2000;
-            const histLimit = parseInt(historyLimitInput.value) || 10; // Lấy giá trị history
+            const limit = parseInt(memLimitInput.value) || 2000;
+            const hLimit = parseInt(historyLimitInput.value) || 10;
 
             const res = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: text, history: history, currentSummary: currentSummary,
-                    maxMemoryLength: memLimit,
-                    historyLimit: histLimit, // Gửi lên server
-                    model: currentModel
+                    maxMemoryLength: limit, historyLimit: hLimit, model: currentModel
                 })
             });
             const data = await res.json();
@@ -330,7 +364,7 @@
 
     function switchTab(name) {
         document.getElementById('chatPanel').style.display = name === 'chat' ? 'flex' : 'none';
-        document.getElementById('memoryPanel').style.display = name === 'chat' ? 'none' : 'flex';
+        document.getElementById('memoryPanel').style.display = name === 'chat' ? 'none' : 'flex'; // FLEX layout
         document.getElementById('tabChat').className = name === 'chat' ? 'tab-btn active' : 'tab-btn';
         document.getElementById('tabMem').className = name === 'chat' ? 'tab-btn' : 'tab-btn active';
     }
