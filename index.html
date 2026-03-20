@@ -21,7 +21,7 @@
         .header-btn:hover { background: #e4e6eb; color: #000; }
         .header-btn.active { background: var(--success-color); color: white; }
 
-        /* TABS */
+        /* TABS (3 TAB) */
         .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; flex-shrink: 0; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; font-size: 13px; }
         .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
@@ -30,13 +30,13 @@
         /* CONTENT AREA */
         .content-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* PANEL 1: CHAT */
+        /* --- PANEL 1: CHAT --- */
         #chatPanel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* PANEL 2: SETTINGS (Cuộn riêng) */
+        /* --- PANEL 2: SETTINGS (Cuộn riêng) --- */
         #settingsPanel { height: 100%; padding: 20px; overflow-y: auto; background: #f8f9fa; display: none; }
 
-        /* PANEL 3: MEMORY (FULL SCREEN LOG) */
+        /* --- PANEL 3: MEMORY (FIX LỖI HIỂN THỊ) --- */
         #memoryPanel { 
             height: 100%; 
             display: none; /* Flex khi active */
@@ -46,7 +46,36 @@
             overflow: hidden;
         }
 
-        /* --- STYLES CHO SETTINGS --- */
+        /* Khung hiển thị Log (Chiếm toàn bộ không gian) */
+        .memory-wrapper {
+            flex: 1; /* Tự động giãn kịch kim */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Chặn tràn */
+            background: #1e1e1e;
+        }
+
+        .memory-header {
+            background: #333; padding: 10px 15px; font-weight: bold; font-size: 13px; color: #fff; 
+            border-bottom: 1px solid #444; flex-shrink: 0; display: flex; justify-content: space-between;
+        }
+
+        .memory-display { 
+            flex: 1; /* Giãn hết chiều cao */
+            background: #1e1e1e; color: #0f0; 
+            padding: 15px; 
+            font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; 
+            white-space: pre-wrap; /* Giữ nguyên xuống dòng */
+            overflow-y: auto; /* THANH CUỘN Ở ĐÂY */
+            padding-bottom: 80px; /* Khoảng trống đáy để dễ đọc */
+        }
+        
+        /* Custom Scrollbar cho đẹp */
+        .memory-display::-webkit-scrollbar { width: 8px; }
+        .memory-display::-webkit-scrollbar-track { background: #1e1e1e; }
+        .memory-display::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+        /* --- CÁC STYLE KHÁC GIỮ NGUYÊN --- */
         .settings-box { background: #fff; border: 1px solid #e5e5ea; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .setting-row { margin-bottom: 15px; }
         .setting-label { display: block; font-weight: 600; font-size: 13px; color: #555; margin-bottom: 5px; }
@@ -54,7 +83,6 @@
         .limit-input-group { display: flex; align-items: center; gap: 10px; }
         .limit-input-group input { width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
         
-        /* Toggle */
         .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
         .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -63,32 +91,12 @@
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(14px); }
 
-        /* --- STYLES CHO MEMORY (Tab 3 - FIX SCROLL) --- */
-        .memory-header {
-            background: #eee; padding: 10px 15px; font-weight: bold; font-size: 13px; color: #555; 
-            border-bottom: 1px solid #ddd; flex-shrink: 0; display: flex; justify-content: space-between;
-        }
-        .memory-display { 
-            flex: 1; /* Chiếm toàn bộ chiều cao còn lại */
-            background: #1e1e1e; color: #0f0; 
-            padding: 15px; 
-            font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; 
-            white-space: pre-wrap; 
-            overflow-y: auto; /* Scroll ở đây */
-            padding-bottom: 50px;
-        }
-        .memory-display::-webkit-scrollbar { width: 8px; }
-        .memory-display::-webkit-scrollbar-track { background: #1e1e1e; }
-        .memory-display::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-
-        /* CHAT UI */
         .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
         .message { max-width: 85%; padding: 10px 16px; border-radius: 18px; font-size: 15px; line-height: 1.5; word-wrap: break-word; }
         .user { align-self: flex-end; background: var(--primary-color); color: white; border-bottom-right-radius: 4px; }
         .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
         .system { align-self: center; font-size: 12px; color: #666; background: rgba(0,0,0,0.05); padding: 5px 12px; border-radius: 12px; margin: 5px 0; text-align: center; }
 
-        /* REASONING STYLE */
         .reasoning-box { margin-bottom: 8px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #fafafa; }
         .reasoning-header { background: #f0f0f0; padding: 6px 10px; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .reasoning-content { padding: 10px; font-family: monospace; font-size: 13px; color: #444; border-top: 1px solid #ddd; background: white; white-space: pre-wrap; display: none; }
@@ -101,7 +109,6 @@
         .dot:nth-child(2) { animation-delay: 0.2s; } .dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-        /* INPUT AREA */
         .input-wrapper { background: white; border-top: 1px solid #c6c6c8; padding-bottom: env(safe-area-inset-bottom, 15px); flex-shrink: 0; }
         .normal-mode { padding: 10px 15px; display: flex; align-items: center; gap: 10px; }
         input.chat-input { flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #c6c6c8; font-size: 16px; outline: none; background: #f9f9f9; }
@@ -142,7 +149,7 @@
         <!-- TAB 1: CHAT -->
         <div id="chatPanel">
             <div class="chat-list" id="chatBox">
-                <div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>
+                <!-- Tin nhắn sẽ được load từ LocalStorage -->
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
             
@@ -201,12 +208,13 @@
             </div>
         </div>
 
-        <!-- TAB 3: MEMORY (FULL SCREEN LOG) -->
+        <!-- TAB 3: MEMORY (FIX LỖI HIỂN THỊ) -->
         <div id="memoryPanel">
             <div class="memory-header">
                 <span>NỘI DUNG NÃO BỘ</span>
-                <span id="currLen" style="font-weight:normal; color:#666;">0 chars</span>
+                <span id="currLen" style="font-weight:normal; color:#ccc;">0 chars</span>
             </div>
+            <!-- Khung này giờ đã có thể cuộn thoải mái -->
             <div id="memoryDisplay" class="memory-display">Chưa có dữ liệu...</div>
         </div>
     </div>
@@ -214,7 +222,6 @@
 
 <script>
     const API_URL = "/api/chat";
-    // Elements
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -229,7 +236,6 @@
     const modelSelect = document.getElementById('modelSelect');
     const autoSwitchToggle = document.getElementById('autoSwitchToggle');
     
-    // Voice Elements
     const normalInput = document.getElementById('normalInput');
     const wtInput = document.getElementById('wtInput');
     const bigMicBtn = document.getElementById('bigMicBtn');
@@ -241,40 +247,38 @@
     let currentSummary = ""; 
     let isWTMode = false; 
 
-    // --- KHỞI TẠO TỪ LOCALSTORAGE ---
-    function loadFromStorage() {
+    // --- LOAD TỪ LOCALSTORAGE ---
+    window.addEventListener('load', () => {
         try {
             const savedHistory = localStorage.getItem('chat_history');
             const savedMemory = localStorage.getItem('chat_memory');
             
             if (savedHistory) {
                 history = JSON.parse(savedHistory);
-                // Xóa tin nhắn mặc định nếu có history cũ
                 if(history.length > 0) chatBox.innerHTML = ""; 
-                // Render lại tin nhắn
                 history.forEach(msg => {
-                    // Mẹo: Dùng hàm render có sẵn, thêm tham số true để xử lý reasoning
                     if(msg.role === 'assistant') appendMessage(msg.content, 'ai', true, false); 
                     else appendMessage(msg.content, 'user', false, false);
                 });
-                chatBox.appendChild(loading); // Đưa loading xuống cuối
+                chatBox.appendChild(loading);
+            } else {
+                chatBox.innerHTML = '<div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>';
+                chatBox.appendChild(loading);
             }
             
             if (savedMemory) {
                 currentSummary = savedMemory;
-                updateMemoryUI(currentSummary);
+                updateMemoryUI(currentSummary); // Cập nhật ngay khi load
+                console.log("Memory Loaded:", currentSummary.length, "chars");
             }
-        } catch (e) { console.error("Load storage error", e); }
-    }
+        } catch (e) { console.error("Error loading storage:", e); }
+    });
 
     // --- HÀM LƯU ---
     function saveState() {
         localStorage.setItem('chat_history', JSON.stringify(history));
         localStorage.setItem('chat_memory', currentSummary);
     }
-
-    // GỌI HÀM LOAD KHI TRANG TẢI XONG
-    window.addEventListener('load', loadFromStorage);
 
     // --- VOICE LOGIC ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -339,18 +343,15 @@
             loading.style.display = 'none';
             appendMessage(data.response, 'ai', true);
 
-            // CẬP NHẬT BIẾN & GIAO DIỆN
+            // CẬP NHẬT & LƯU
             if (data.newSummary) { 
                 currentSummary = data.newSummary; 
                 updateMemoryUI(currentSummary); 
             }
             
-            // ĐẨY VÀO LỊCH SỬ
             history.push({ role: "user", content: text });
             history.push({ role: "assistant", content: data.response });
-            
-            // LƯU VÀO Ổ CỨNG NGAY LẬP TỨC
-            saveState();
+            saveState(); // Lưu ngay
 
         } catch (error) {
             const isOverloaded = error.message.includes("429") || error.message.includes("over capacity") || error.message.includes("Rate limit");
@@ -374,7 +375,58 @@
         return (idx !== -1 && idx < opts.length - 1) ? opts[idx + 1] : opts[0];
     }
 
-    // appendMessage có thêm tham số 'animate' để không cuộn khi load lại trang
+    // --- UI HELPERS ---
+    function switchTab(name) {
+        document.getElementById('chatPanel').style.display = 'none';
+        document.getElementById('settingsPanel').style.display = 'none';
+        document.getElementById('memoryPanel').style.display = 'none';
+        
+        document.getElementById('tabChat').className = 'tab-btn';
+        document.getElementById('tabSet').className = 'tab-btn';
+        document.getElementById('tabMem').className = 'tab-btn';
+
+        if (name === 'chat') {
+            document.getElementById('chatPanel').style.display = 'flex';
+            document.getElementById('tabChat').classList.add('active');
+        } else if (name === 'settings') {
+            document.getElementById('settingsPanel').style.display = 'block';
+            document.getElementById('tabSet').classList.add('active');
+        } else if (name === 'memory') {
+            document.getElementById('memoryPanel').style.display = 'flex'; // FLEX ĐỂ FIX LỖI CHIỀU CAO
+            document.getElementById('tabMem').classList.add('active');
+            
+            // Ép cập nhật lại nội dung khi mở tab
+            updateMemoryUI(currentSummary);
+        }
+    }
+
+    function updateMemoryUI(text) {
+        const display = document.getElementById('memoryDisplay');
+        const lenSpan = document.getElementById('currLen');
+        
+        if (!text) {
+            display.innerHTML = '<div style="color:#999; font-style:italic;">Chưa có dữ liệu...</div>';
+            lenSpan.innerText = "0 chars";
+        } else {
+            display.innerText = text;
+            lenSpan.innerText = text.length + " chars";
+        }
+    }
+
+    function resetChat() {
+        if (!confirm("Xóa toàn bộ cuộc trò chuyện?")) return;
+        history = []; currentSummary = ""; updateMemoryUI("");
+        
+        localStorage.removeItem('chat_history');
+        localStorage.removeItem('chat_memory');
+
+        chatBox.querySelectorAll('.message, .system').forEach(m => m.remove());
+        chatBox.innerHTML = '<div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>';
+        chatBox.appendChild(loading);
+        
+        switchTab('chat');
+    }
+
     function appendMessage(text, sender, parseThink = false, animate = true) {
         const div = document.createElement('div'); div.className = `message ${sender}`;
         if (sender === 'ai' && parseThink) {
@@ -400,52 +452,6 @@
     function appendSystemMessage(text) {
         const div = document.createElement('div'); div.className = 'system'; div.innerText = text;
         chatBox.insertBefore(div, loading); scrollToBottom();
-    }
-
-    function switchTab(name) {
-        document.getElementById('chatPanel').style.display = 'none';
-        document.getElementById('settingsPanel').style.display = 'none';
-        document.getElementById('memoryPanel').style.display = 'none';
-        
-        document.getElementById('tabChat').className = 'tab-btn';
-        document.getElementById('tabSet').className = 'tab-btn';
-        document.getElementById('tabMem').className = 'tab-btn';
-
-        if (name === 'chat') {
-            document.getElementById('chatPanel').style.display = 'flex';
-            document.getElementById('tabChat').classList.add('active');
-        } else if (name === 'settings') {
-            document.getElementById('settingsPanel').style.display = 'block';
-            document.getElementById('tabSet').classList.add('active');
-        } else if (name === 'memory') {
-            document.getElementById('memoryPanel').style.display = 'flex';
-            document.getElementById('tabMem').classList.add('active');
-        }
-    }
-
-    function updateMemoryUI(text) {
-        const len = text ? text.length : 0;
-        currLen.innerText = len + " chars";
-        memoryDisplay.innerText = text || "Chưa có dữ liệu...";
-    }
-
-    function resetChat() {
-        if (!confirm("Xóa toàn bộ cuộc trò chuyện? (Không thể khôi phục)")) return;
-        
-        // Reset Biến
-        history = []; 
-        currentSummary = ""; 
-        updateMemoryUI("");
-        
-        // Xóa Storage
-        localStorage.removeItem('chat_history');
-        localStorage.removeItem('chat_memory');
-
-        // Reset UI
-        chatBox.innerHTML = '<div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>';
-        chatBox.appendChild(loading);
-        
-        switchTab('chat');
     }
 
     function toggleInput(enabled) { userInput.disabled = !enabled; sendBtn.disabled = !enabled; }
