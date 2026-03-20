@@ -86,7 +86,9 @@ export default async function handler(req, res) {
             const memData = await memRes.json();
             if (memData.error) throw new Error(memData.error.message);
 
-            const memContent = memData.choices?.[0]?.message?.content?.trim();
+            const memRaw = memData.choices?.[0]?.message?.content || "";
+            // Strip <think> khỏi memory output trước khi lưu vào bộ não
+            const memContent = memRaw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
             if (memContent) {
                 newSummary = memContent.length <= targetLength
                     ? memContent
