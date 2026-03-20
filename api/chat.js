@@ -6,8 +6,6 @@ export default async function handler(req, res) {
     }
 
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    // CF Worker đã bị loại bỏ — memory summarization dùng Groq model nhỏ riêng
-    const MEMORY_MODEL = "llama-3.1-8b-instant"; // Nhanh, nhẹ, đủ dùng cho tóm tắt
 
     try {
         const {
@@ -23,142 +21,125 @@ export default async function handler(req, res) {
         const targetLength       = maxMemoryLength || 2000;
         const targetHistoryLimit = historyLimit || 10;
 
-        // ── BƯỚC 1: GROQ TRẢ LỜI ──────────────────────────────────────────
-
-        // FIX: frontend đã slice rồi, nhưng slice lần nữa để an toàn phía server
         const tinyHistory = (history || []).slice(-targetHistoryLimit);
 
-        const systemPrompt = `
-VAI TRÒ: Trợ lý AI Thông Minh & Chuyên Nghiệp.
+        // ── CHUẨN BỊ: context cho memory (tính trước khi gọi song song) ───
+
+        // Nếu history đầy, cặp tin cũ nhất sắp bị slice → consolidate trước khi mất
+        const historyFull    = (history || []).length >= targetHistoryLimit;
+        const oldestPair     = historyFull ? (history || []).slice(0, 2) : [];
+        const evictedContext = oldestPair.length === 2
+            ? `\nTIN NHẮN SẮP BỊ XÓA (cần lưu lại nếu quan trọng):\nUser: "${oldestPair[0]?.content}"\nAI: "${oldestPair[1]?.content}"`
+            : "";
+
+        const currentBrainSize = (currentSummary || "").length;
+        const budgetUsedPct    = Math.round((currentBrainSize / targetLength) * 100);
+
+        const chatSystemPrompt = `VAI TRÒ: Trợ lý AI Thông Minh & Chuyên Nghiệp.
 
 --- 📝 DỮ LIỆU BỘ NHỚ (NGỮ CẢNH HỘI THOẠI) ---
 ${currentSummary || "Chưa có dữ liệu."}
 ----------------------------------------------
 
 QUY TẮC XỬ LÝ (TUÂN THỦ 100%):
-
 1. PHÂN BIỆT RÕ RÀNG:
    - [DỮ LIỆU BỘ NHỚ] là những gì User và AI ĐÃ từng nói với nhau.
    - [KIẾN THỨC CỦA BẠN] là những gì bạn biết về thế giới.
+2. KHI USER HỎI VỀ QUÁ KHỨ: nhìn vào Bộ nhớ, trả lời CÓ/CHƯA dựa trên từ khóa.
+3. KHI USER HỎI KIẾN THỨC: dùng kiến thức của bạn để trả lời chi tiết.
+4. PHONG CÁCH: Tự tin, ngắn gọn, đi thẳng vào vấn đề.`;
 
-2. KHI USER HỎI VỀ QUÁ KHỨ (Check Memory):
-   - Nhìn vào Bộ nhớ. Nếu thấy từ khóa -> TRẢ LỜI: "CÓ". Nếu không -> TRẢ LỜI: "CHƯA".
-   - Tuyệt đối tin tưởng vào danh sách từ khóa trong bộ nhớ.
+        // Xác định chế độ: NÉN KHẨN CẤP nếu đã vượt limit, CẬP NHẬT THƯỜNG nếu còn chỗ
+        const isOverBudget = currentBrainSize > targetLength;
+        const memoryMode   = isOverBudget
+            ? `🚨 CHẾ ĐỘ NÉN KHẨN CẤP: Bộ não đang ở ${currentBrainSize} ký tự, vượt giới hạn ${targetLength} ký tự!
+NHIỆM VỤ DUY NHẤT: Nén bộ não xuống còn dưới ${targetLength} ký tự.
+- SHORT_TERM_LOG: chỉ giữ TỐI ĐA 3 dòng quan trọng nhất, xóa hết còn lại.
+- KNOWLEDGE_GRAPH: giữ tối đa 10 từ khóa quan trọng nhất, xóa hết còn lại.
+- USER_PROFILE: chỉ giữ thông tin cốt lõi (tên, nghề, sở thích chính).
+- CURRENT_GOAL: 1 câu ngắn hoặc để trống.
+KHÔNG được giữ nguyên bộ não cũ. BẮT BUỘC phải cắt giảm.`
+            : `✅ CHẾ ĐỘ CẬP NHẬT: Còn ${targetLength - currentBrainSize} ký tự trống.
+- Thêm thông tin mới từ hội thoại vào đúng section.
+- SHORT_TERM_LOG: chỉ giữ tối đa 5 dòng gần nhất, xóa log cũ hơn.
+- Nếu bộ não đang tiệm cận ${targetLength} ký tự thì bắt đầu gộp/cắt log cũ.`;
 
-3. KHI USER HỎI KIẾN THỨC (Check Knowledge):
-   - Dùng KIẾN THỨC CỦA BẠN để trả lời chi tiết và hữu ích.
+        const memorySystemPrompt = `Bạn là Memory Manager. Quản lý bộ nhớ dài hạn trong giới hạn cứng ${targetLength} ký tự.
 
-4. PHONG CÁCH: Tự tin, ngắn gọn, đi thẳng vào vấn đề.
-`;
+TRẠNG THÁI: ${currentBrainSize}/${targetLength} ký tự (${budgetUsedPct}%).
+${memoryMode}
 
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${GROQ_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: targetModel,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    ...tinyHistory,
-                    { role: "user", content: message }
-                ],
-                temperature: 0.7,
-                max_tokens: 2048
-            })
-        });
+QUY TẮC LUÔN ÁP DỤNG:
+1. Output PHẢI <= ${targetLength} ký tự. Đếm kỹ trước khi trả về.
+2. Ưu tiên giữ: USER_PROFILE > KNOWLEDGE_GRAPH > log gần > log cũ.
+3. Nếu có "TIN NHẮN SẮP BỊ XÓA" → trích thông tin quan trọng trước khi mất.
+4. CHỈ trả về 4 section theo format, KHÔNG thêm bất kỳ text nào khác.
 
-        const groqData = await groqRes.json();
-        if (groqData.error) {
-            throw new Error(groqData.error.message);
-        }
-
-        const aiReply = groqData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
-
-        // ── BƯỚC 2: CẬP NHẬT BỘ NÃO với lifecycle đúng ──────────────────
-        //
-        // Logic:
-        // - Bộ não có ngân sách cố định = targetLength chars
-        // - Khi history vượt historyLimit, tin cũ nhất được "consolidate" vào bộ não trước khi xóa
-        // - Bộ não PHẢI nén lại nếu gần đầy: ưu tiên USER_PROFILE > KNOWLEDGE_GRAPH > LOG gần
-        //   và LÀM MỜ / XÓA chi tiết cũ trong SHORT_TERM_LOG
-        // - Kết quả luôn <= targetLength chars (model được nhắc hard limit)
-
-        let newSummary = currentSummary;
-        let memoryUpdated = true;
-
-        // Kiểm tra xem có tin nhắn nào sắp bị đẩy ra khỏi short-term không
-        // history hiện tại chưa push tin mới — nếu history.length >= historyLimit thì
-        // tin đầu tiên (oldest) sắp bị slice ra
-        const historyFull = (history || []).length >= targetHistoryLimit;
-        const oldestPair  = historyFull ? (history || []).slice(0, 2) : []; // [user, assistant] cũ nhất
-
-        // Tóm tắt cặp tin sắp bị xóa (nếu có) để inject vào prompt consolidation
-        const evictedContext = oldestPair.length === 2
-            ? `\nTIN NHẮN SẮP BỊ XÓA KHỎI SHORT-TERM (cần consolidate):\nUser: "${oldestPair[0]?.content}"\nAI: "${oldestPair[1]?.content}"`
-            : "";
-
-        const currentBrainSize = (currentSummary || "").length;
-        const budgetUsedPct    = Math.round((currentBrainSize / targetLength) * 100);
-
-        try {
-            const memRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${GROQ_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    model: MEMORY_MODEL,
-                    temperature: 0.2,
-                    max_tokens: 1024,
-                    messages: [
-                        {
-                            role: "system",
-                            content: `Bạn là Memory Manager. Nhiệm vụ: duy trì bộ nhớ dài hạn trong giới hạn ${targetLength} ký tự.
-
-NGÂN SÁCH: ${currentBrainSize}/${targetLength} ký tự (${budgetUsedPct}% đã dùng).
-
-QUY TẮC BẮT BUỘC:
-1. Output PHẢI <= ${targetLength} ký tự. Đây là hard limit tuyệt đối.
-2. Ưu tiên giữ theo thứ tự: USER_PROFILE > KNOWLEDGE_GRAPH > log gần đây > log cũ.
-3. SHORT_TERM_LOG: chỉ giữ tối đa 5 dòng gần nhất. Các dòng cũ hơn → XÓA hoặc gộp thành 1 dòng tóm tắt.
-4. KNOWLEDGE_GRAPH: nếu đầy, gộp các từ khóa cùng chủ đề, xóa từ khóa ít quan trọng.
-5. Nếu có "TIN NHẮN SẮP BỊ XÓA" bên dưới → trích xuất thông tin quan trọng từ đó trước khi nó mất.
-6. CHỈ trả về 4 section, KHÔNG thêm text nào khác ngoài format.
-
-OUTPUT FORMAT (bắt buộc):
+FORMAT BẮT BUỘC:
 === USER_PROFILE ===
-(thông tin user: tên, sở thích, nghề nghiệp...)
 === CURRENT_GOAL ===
-(mục tiêu hiện tại nếu có, nếu không có thì để trống)
 === KNOWLEDGE_GRAPH ===
-(từ khóa quan trọng, cách nhau bởi dấu phẩy)
-=== SHORT_TERM_LOG ===
-(tối đa 5 dòng, mỗi dòng bắt đầu bằng "- ")`
-                        },
+=== SHORT_TERM_LOG ===`;
+
+        // ── BƯỚC 1 & 2: GỌI SONG SONG — chat + memory cùng lúc ────────────
+        // Cùng dùng targetModel, cùng key, nhưng 2 request độc lập chạy parallel
+        // → tổng thời gian = max(chat, memory) thay vì chat + memory
+
+        const [chatRes, memRes] = await Promise.all([
+            fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: targetModel,
+                    messages: [
+                        { role: "system", content: chatSystemPrompt },
+                        ...tinyHistory,
+                        { role: "user", content: message }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 2048
+                })
+            }),
+            fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: targetModel,
+                    messages: [
+                        { role: "system", content: memorySystemPrompt },
                         {
                             role: "user",
-                            content: `BỘ NÃO HIỆN TẠI:\n${currentSummary || '(trống)'}${evictedContext}\n\nHỘI THOẠI VỪA XẢY RA:\nUser: "${message}"\nAI: "${aiReply}"\n\nHãy cập nhật bộ não. Nhớ: output <= ${targetLength} ký tự.`
+                            content: `BỘ NÃO HIỆN TẠI:\n${currentSummary || '(trống)'}${evictedContext}\n\nHỘI THOẠI VỪA XẢY RA:\nUser: "${message}"\nAI: "[đang xử lý song song]"\n\nHãy cập nhật bộ não dựa trên tin nhắn của user. Nhớ: output <= ${targetLength} ký tự.`
                         }
-                    ]
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 1024
                 })
-            });
+            })
+        ]);
 
+        // ── XỬ LÝ KẾT QUẢ CHAT ───────────────────────────────────────────
+        const chatData = await chatRes.json();
+        if (chatData.error) throw new Error(chatData.error.message);
+        const aiReply = chatData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
+
+        // ── XỬ LÝ KẾT QUẢ MEMORY ─────────────────────────────────────────
+        let newSummary    = currentSummary;
+        let memoryUpdated = true;
+
+        try {
             const memData = await memRes.json();
             if (memData.error) throw new Error(memData.error.message);
 
             const memContent = memData.choices?.[0]?.message?.content?.trim();
-
             if (memContent) {
-                // Hard-clamp: nếu model vẫn vượt limit, cắt cứng (safety net)
+                // Hard-clamp safety net nếu model vượt limit
                 newSummary = memContent.length <= targetLength
                     ? memContent
                     : memContent.slice(0, targetLength);
             } else {
                 memoryUpdated = false;
-                console.warn("Memory model returned empty, keeping old summary.");
+                console.warn("Memory returned empty, keeping old summary.");
             }
         } catch (memError) {
             memoryUpdated = false;
