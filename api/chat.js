@@ -1,713 +1,115 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Super Chat Pro</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #0084ff;
-            --bg: #f0f2f5;
-            --danger: #ff3b30;
-            --success: #28a745;
-            --warning: #ff9500;
-            --text: #333;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0; padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--bg); height: 100dvh; width: 100vw;
-            display: flex; justify-content: center; overflow: hidden;
-        }
-        .app-container {
-            width: 100%; max-width: 600px; height: 100%;
-            background: white; display: flex; flex-direction: column;
-            position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
+// File: api/chat.js
 
-        /* HEADER */
-        .header {
-            padding: 0 15px; background: rgba(255,255,255,0.95);
-            border-bottom: 1px solid #e5e5ea;
-            display: flex; align-items: center; justify-content: space-between;
-            height: 56px; flex-shrink: 0; z-index: 10;
-        }
-        .header-left { font-weight: 700; font-size: 17px; color: var(--text); display: flex; align-items: center; gap: 8px; }
-        .header-right { display: flex; gap: 8px; }
-        .header-btn {
-            background: #f0f2f5; border: none; cursor: pointer; color: #555;
-            font-size: 15px; width: 34px; height: 34px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; transition: 0.2s;
-        }
-        .header-btn:hover { background: #e4e6eb; color: #000; }
-        .header-btn.active { background: var(--success); color: white; }
-
-        /* TABS — 3 tabs */
-        .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; flex-shrink: 0; }
-        .tab-btn {
-            flex: 1; padding: 11px 4px; border: none; background: none;
-            font-weight: 600; font-size: 13px; color: #888; cursor: pointer;
-            border-bottom: 2px solid transparent; transition: 0.25s;
-            display: flex; align-items: center; justify-content: center; gap: 5px;
-        }
-        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-        /* CONTENT */
-        .content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-
-        /* ── PANEL: CHAT ── */
-        #chatPanel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-
-        /* ── PANEL: SETTINGS ── */
-        #settingsPanel {
-            height: 100%; display: none; flex-direction: column;
-            background: #fff; overflow-y: auto; padding: 16px;
-        }
-        #settingsPanel::-webkit-scrollbar { width: 6px; }
-        #settingsPanel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-
-        /* ── PANEL: BRAIN (bộ não) ── */
-        #brainPanel {
-            height: 100%; display: none; flex-direction: column;
-            background: #fff; overflow: hidden;
-        }
-
-        /* SETTINGS BOXES */
-        .settings-section { margin-bottom: 18px; }
-        .settings-section-title {
-            font-size: 11px; font-weight: 700; color: #999;
-            text-transform: uppercase; letter-spacing: 0.06em;
-            margin-bottom: 8px; padding-left: 2px;
-        }
-        .settings-box {
-            background: #f8f9fa; border: 1px solid #e9ecef;
-            padding: 14px; border-radius: 10px;
-        }
-        .setting-row { margin-bottom: 14px; }
-        .setting-row:last-child { margin-bottom: 0; }
-        .setting-label { display: block; font-weight: 600; font-size: 13px; color: #444; margin-bottom: 6px; }
-        select.full-width {
-            width: 100%; padding: 10px; border: 1px solid #ccc;
-            border-radius: 8px; background: white; font-size: 14px; outline: none;
-        }
-        .limit-input-group { display: flex; align-items: center; gap: 10px; }
-        .limit-input-group input {
-            width: 110px; padding: 8px 10px; border: 1px solid #ccc;
-            border-radius: 8px; text-align: center; font-size: 14px; outline: none;
-        }
-        .limit-input-group span { font-size: 13px; color: #666; }
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-        .toggle-label { font-weight: 600; font-size: 13px; color: #444; }
-        .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background: var(--primary); }
-        input:checked + .slider:before { transform: translateX(16px); }
-
-        /* BRAIN PANEL */
-        .brain-header {
-            background: #f5f5f5; padding: 10px 14px; font-weight: 700;
-            font-size: 12px; color: #555; border-bottom: 1px solid #ddd;
-            flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
-        }
-        .brain-status { display: flex; align-items: center; gap: 6px; }
-        .brain-dot {
-            width: 8px; height: 8px; border-radius: 50%; background: #ccc;
-            transition: background 0.3s;
-        }
-        .brain-dot.ok { background: var(--success); }
-        .brain-dot.warn { background: var(--warning); animation: blink 1s infinite; }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        .brain-display {
-            flex: 1; background: #1a1a2e; color: #7ec8e3;
-            padding: 16px; font-family: 'Consolas', 'SF Mono', monospace;
-            font-size: 12.5px; line-height: 1.7; white-space: pre-wrap;
-            overflow-y: auto; padding-bottom: 30px;
-        }
-        .brain-display::-webkit-scrollbar { width: 6px; }
-        .brain-display::-webkit-scrollbar-track { background: #1a1a2e; }
-        .brain-display::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 3px; }
-        .brain-warn-banner {
-            display: none; background: #fff3cd; border-bottom: 1px solid #ffc107;
-            padding: 8px 14px; font-size: 12px; color: #856404;
-            align-items: center; gap: 6px; flex-shrink: 0;
-        }
-        .brain-warn-banner.show { display: flex; }
-
-        /* CHAT */
-        .chat-list {
-            flex: 1; padding: 14px; overflow-y: auto;
-            background: var(--bg); display: flex; flex-direction: column;
-            gap: 10px; scroll-behavior: smooth;
-        }
-        .chat-list::-webkit-scrollbar { width: 4px; }
-        .chat-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-        .message {
-            max-width: 85%; padding: 10px 14px; border-radius: 18px;
-            font-size: 15px; line-height: 1.5; word-wrap: break-word;
-        }
-        .user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
-        .ai { align-self: flex-start; background: white; border: 1px solid #e5e5ea; color: black; border-bottom-left-radius: 4px; }
-        .system {
-            align-self: center; font-size: 12px; color: #666;
-            background: rgba(0,0,0,0.05); padding: 4px 12px;
-            border-radius: 12px; text-align: center;
-        }
-        .system.warn { background: #fff3cd; color: #856404; }
-
-        /* REASONING */
-        .reasoning-box { margin-bottom: 8px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #fafafa; }
-        .reasoning-header {
-            background: #f0f0f0; padding: 6px 10px; font-size: 12px;
-            font-weight: 600; color: #666; cursor: pointer;
-            display: flex; align-items: center; gap: 5px;
-        }
-        .reasoning-content {
-            padding: 10px; font-family: monospace; font-size: 13px;
-            color: #444; border-top: 1px solid #ddd; background: white;
-            white-space: pre-wrap; display: none;
-        }
-        .reasoning-box.open .reasoning-content { display: block; }
-        .arrow { transition: transform 0.2s; font-size: 10px; }
-        .reasoning-box.open .arrow { transform: rotate(180deg); }
-
-        .typing {
-            display: none; align-self: flex-start; background: white;
-            padding: 10px 14px; border-radius: 18px; border: 1px solid #e5e5ea;
-        }
-        .dot { width: 6px; height: 6px; background: #aaa; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite; margin: 0 2px; }
-        .dot:nth-child(2) { animation-delay: 0.2s; }
-        .dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
-
-        /* INPUT */
-        .input-wrapper {
-            background: white; border-top: 1px solid #c6c6c8;
-            padding-bottom: env(safe-area-inset-bottom, 12px); flex-shrink: 0;
-        }
-        .normal-mode { padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
-        input.chat-input {
-            flex: 1; padding: 11px 14px; border-radius: 20px;
-            border: 1px solid #c6c6c8; font-size: 16px; outline: none;
-            background: #f9f9f9;
-        }
-        input.chat-input:focus { border-color: var(--primary); background: white; }
-        input.chat-input:disabled { opacity: 0.5; }
-        .action-btn {
-            width: 40px; height: 40px; border-radius: 50%; border: none;
-            font-size: 17px; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; transition: 0.2s;
-            flex-shrink: 0;
-        }
-        .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        #sendBtn { background: var(--primary); color: white; }
-        #micBtn { background: #e4e6eb; color: #333; }
-        #micBtn.active { background: var(--danger); color: white; animation: pulse 1.5s infinite; }
-
-        .walkie-talkie-mode {
-            display: none; justify-content: center; align-items: center;
-            padding: 18px; flex-direction: column; gap: 10px;
-            background: #f8f9fa; border-top: 1px solid #ddd;
-        }
-        .big-mic-btn {
-            width: 76px; height: 76px; border-radius: 50%; border: none;
-            background: var(--primary); color: white; font-size: 28px;
-            cursor: pointer; box-shadow: 0 4px 12px rgba(0,132,255,0.3);
-            transition: transform 0.1s, background 0.3s;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .big-mic-btn:active { transform: scale(0.9); background: var(--danger); }
-        .big-mic-btn.recording { background: var(--danger); animation: pulse 1.5s infinite; }
-        .wt-status { font-size: 13px; color: #666; font-weight: 500; }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255,59,48,0.6); }
-            70% { box-shadow: 0 0 0 14px rgba(255,59,48,0); }
-            100% { box-shadow: 0 0 0 0 rgba(255,59,48,0); }
-        }
-    </style>
-</head>
-<body>
-<div class="app-container">
-
-    <div class="header">
-        <div class="header-left">
-            <i class="fas fa-brain" style="color:var(--primary)"></i> Super AI
-        </div>
-        <div class="header-right">
-            <button id="wtToggleBtn" class="header-btn" onclick="toggleVoiceMode()" title="Bộ đàm">
-                <i class="fas fa-walkie-talkie"></i>
-            </button>
-            <button class="header-btn" onclick="resetChat()" title="Xóa chat">
-                <i class="fas fa-trash-alt"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- 3 TABS -->
-    <div class="tabs">
-        <button class="tab-btn active" id="tabChat" onclick="switchTab('chat')">
-            <i class="fas fa-comment-dots"></i> Chat
-        </button>
-        <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')">
-            <i class="fas fa-sliders-h"></i> Cài đặt
-        </button>
-        <button class="tab-btn" id="tabBrain" onclick="switchTab('brain')">
-            <i class="fas fa-brain"></i> Bộ não
-        </button>
-    </div>
-
-    <div class="content-area">
-
-        <!-- TAB 1: CHAT -->
-        <div id="chatPanel">
-            <div class="chat-list" id="chatBox">
-                <div class="typing" id="loading">
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                </div>
-            </div>
-            <div class="input-wrapper">
-                <div class="normal-mode" id="normalInput">
-                    <input type="text" id="userInput" class="chat-input" placeholder="Nhập tin nhắn..." autocomplete="off">
-                    <button id="micBtn" class="action-btn" onclick="toggleNormalVoice()">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                    <button id="sendBtn" class="action-btn" onclick="sendMessage()">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-                <div class="walkie-talkie-mode" id="wtInput">
-                    <div class="wt-status" id="wtStatus">Nhấn giữ để nói...</div>
-                    <button id="bigMicBtn" class="big-mic-btn"
-                        onmousedown="startHold()" onmouseup="endHold()"
-                        ontouchstart="startHold(event)" ontouchend="endHold()">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 2: CÀI ĐẶT -->
-        <div id="settingsPanel">
-
-            <div class="settings-section">
-                <div class="settings-section-title">Model & Hành vi</div>
-                <div class="settings-box">
-                    <div class="setting-row">
-                        <div class="toggle-row">
-                            <span class="toggle-label">🔄 Auto Switch khi lỗi</span>
-                            <label class="switch">
-                                <input type="checkbox" id="autoSwitchToggle" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label class="setting-label">🤖 Model</label>
-                        <select id="modelSelect" class="full-width">
-                            <option value="llama-3.3-70b-versatile" selected>Llama 3.3 70B — Thông minh</option>
-                            <option value="qwen/qwen3-32b">Qwen 3 32B — Có suy luận</option>
-                            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B — Mới</option>
-                            <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
-                            <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 — Gốc</option>
-                            <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
-                            <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
-                            <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">Bộ nhớ & Ngữ cảnh</div>
-                <div class="settings-box">
-                    <div class="setting-row">
-                        <label class="setting-label">📜 Lịch sử ngắn hạn</label>
-                        <div class="limit-input-group">
-                            <input type="number" id="historyLimitInput" value="10" min="2" max="50">
-                            <span>tin nhắn gần nhất</span>
-                        </div>
-                    </div>
-                    <div class="setting-row">
-                        <label class="setting-label">🧠 Giới hạn bộ não</label>
-                        <div class="limit-input-group">
-                            <input type="number" id="memLimitInput" value="2000" min="500" step="100">
-                            <span>ký tự</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- TAB 3: BỘ NÃO -->
-        <div id="brainPanel">
-            <div class="brain-warn-banner" id="brainWarnBanner">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>Bộ não chưa được cập nhật lần này — Cloudflare gặp sự cố.</span>
-            </div>
-            <div class="brain-header">
-                <span>NỘI DUNG BỘ NÃO</span>
-                <div class="brain-status">
-                    <div class="brain-dot" id="brainDot"></div>
-                    <span id="currLen" style="font-weight:400; color:#888; font-size:12px;">0 chars</span>
-                </div>
-            </div>
-            <div id="brainDisplay" class="brain-display">Chưa có dữ liệu...</div>
-        </div>
-
-    </div><!-- end content-area -->
-</div><!-- end app-container -->
-
-<script>
-    /* ─────────────── CONSTANTS & REFS ─────────────── */
-    const API_URL = "/api/chat";
-
-    const chatBox      = document.getElementById('chatBox');
-    const userInput    = document.getElementById('userInput');
-    const sendBtn      = document.getElementById('sendBtn');
-    const micBtn       = document.getElementById('micBtn');
-    const loading      = document.getElementById('loading');
-    const memLimitInput    = document.getElementById('memLimitInput');
-    const historyLimitInput = document.getElementById('historyLimitInput');
-    const modelSelect  = document.getElementById('modelSelect');
-    const autoSwitchToggle = document.getElementById('autoSwitchToggle');
-    const normalInput  = document.getElementById('normalInput');
-    const wtInput      = document.getElementById('wtInput');
-    const bigMicBtn    = document.getElementById('bigMicBtn');
-    const wtStatus     = document.getElementById('wtStatus');
-    const wtToggleBtn  = document.getElementById('wtToggleBtn');
-    const brainDisplay = document.getElementById('brainDisplay');
-    const currLen      = document.getElementById('currLen');
-    const brainDot     = document.getElementById('brainDot');
-    const brainWarnBanner = document.getElementById('brainWarnBanner');
-
-    let history = [];
-    let currentSummary = "";
-    let isWTMode = false;
-    let isSending = false;   // FIX: chặn duplicate requests
-
-    /* ─────────────── LOAD STATE ─────────────── */
-    window.addEventListener('load', () => {
-        try {
-            const h = localStorage.getItem('h');
-            const m = localStorage.getItem('m');
-            if (h) {
-                history = JSON.parse(h);
-                if (history.length > 0) {
-                    history.forEach(msg => {
-                        if (msg.role === 'assistant') appendMessage(msg.content, 'ai', true, false);
-                        else appendMessage(msg.content, 'user', false, false);
-                    });
-                } else {
-                    showWelcome();
-                }
-            } else {
-                showWelcome();
-            }
-            if (m) {
-                currentSummary = m;
-                updateBrainUI(currentSummary);
-            }
-        } catch (e) {
-            // FIX: corrupt localStorage — clear và hiện welcome
-            console.warn("Storage corrupt, resetting.", e);
-            localStorage.removeItem('h');
-            localStorage.removeItem('m');
-            history = [];
-            currentSummary = "";
-            showWelcome();
-        }
-    });
-
-    function showWelcome() {
-        const div = document.createElement('div');
-        div.className = 'message ai';
-        div.textContent = "Xin chào! Tôi có thể giúp gì cho bạn hôm nay?";
-        chatBox.insertBefore(div, loading);
+export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    function saveState() {
-        localStorage.setItem('h', JSON.stringify(history));
-        localStorage.setItem('m', currentSummary);
-    }
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-    /* ─────────────── VOICE ─────────────── */
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition;
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN';
-        recognition.continuous = false;
-        recognition.interimResults = false;
+    try {
+        const { message, history, currentSummary, maxMemoryLength, model, historyLimit } = req.body;
 
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript;
-            if (isWTMode) {
-                userInput.value = text;
-                sendMessage();
-                wtStatus.textContent = "Đã gửi: " + text;
-                setTimeout(() => { wtStatus.textContent = "Nhấn giữ để nói..."; }, 2000);
-            } else {
-                userInput.value = text;
-                userInput.focus();
-            }
-        };
+        const targetModel        = model || "llama-3.3-70b-versatile";
+        const targetLength       = maxMemoryLength || 2000;
+        const targetHistoryLimit = historyLimit || 10;
+        const tinyHistory        = (history || []).slice(-targetHistoryLimit);
 
-        recognition.onerror = () => {
-            if (isWTMode) wtStatus.textContent = "Lỗi. Thử lại.";
-        };
+        // ── BƯỚC 1: CHAT ──────────────────────────────────────────────────
 
-        // FIX: reset mic button state khi recognition kết thúc
-        recognition.onend = () => {
-            micBtn.classList.remove('active');
-        };
-    }
+        const chatRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: targetModel,
+                messages: [
+                    {
+                        role: "system",
+                        content: `VAI TRÒ: Trợ lý AI Thông Minh & Chuyên Nghiệp.\n\n--- DỮ LIỆU BỘ NHỚ ---\n${currentSummary || "Chưa có dữ liệu."}\n----------------------\n\nQUY TẮC:\n1. [BỘ NHỚ] = những gì User & AI đã nói. [KIẾN THỨC] = hiểu biết về thế giới.\n2. Hỏi quá khứ → nhìn bộ nhớ, trả lời CÓ/CHƯA.\n3. Hỏi kiến thức → trả lời chi tiết.\n4. Phong cách: tự tin, ngắn gọn.`
+                    },
+                    ...tinyHistory,
+                    { role: "user", content: message }
+                ],
+                temperature: 0.7,
+                max_tokens: 2048
+            })
+        });
 
-    function toggleVoiceMode() {
-        isWTMode = !isWTMode;
-        if (isWTMode) {
-            normalInput.style.display = 'none';
-            wtInput.style.display = 'flex';
-            wtToggleBtn.classList.add('active');
-        } else {
-            normalInput.style.display = 'flex';
-            wtInput.style.display = 'none';
-            wtToggleBtn.classList.remove('active');
-        }
-    }
+        const chatData = await chatRes.json();
+        if (chatData.error) throw new Error(chatData.error.message);
 
-    function startHold(e) {
-        if (e) e.preventDefault();
-        if (isSending) return; // FIX: chặn nếu đang gửi
-        recognition?.start();
-        bigMicBtn.classList.add('recording');
-        wtStatus.textContent = "Đang nghe...";
-    }
+        const aiReplyRaw   = chatData.choices?.[0]?.message?.content || "Xin lỗi, tôi không thể trả lời.";
+        // Strip <think> để memory không bị bloat — frontend vẫn nhận bản gốc có <think>
+        const aiReplyClean = aiReplyRaw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
-    function endHold() {
-        recognition?.stop();
-        bigMicBtn.classList.remove('recording');
-        wtStatus.textContent = "Đang xử lý...";
-    }
+        // ── BƯỚC 2: MEMORY — đầy đủ cả cặp hội thoại ────────────────────
 
-    function toggleNormalVoice() {
-        if (!recognition) return;
-        if (micBtn.classList.contains('active')) {
-            recognition.stop();
-            micBtn.classList.remove('active');
-        } else {
-            recognition.start();
-            micBtn.classList.add('active');
-        }
-    }
+        const currentBrainSize = (currentSummary || "").length;
+        const budgetUsedPct    = Math.round((currentBrainSize / targetLength) * 100);
+        const isOverBudget     = currentBrainSize > targetLength;
 
-    /* ─────────────── SEND ─────────────── */
-    userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+        // Cặp tin sắp bị đẩy ra — consolidate trước khi mất
+        const historyFull    = (history || []).length >= targetHistoryLimit;
+        const oldestPair     = historyFull ? (history || []).slice(0, 2) : [];
+        const evictedContext = oldestPair.length === 2
+            ? `\n\n--- TIN NHẮN SẮP BỊ XÓA (trích thông tin quan trọng trước khi mất) ---\nUser: "${oldestPair[0]?.content}"\nAI: "${(oldestPair[1]?.content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim()}"`
+            : "";
 
-    async function sendMessage() {
-        if (isSending) return; // FIX: chặn duplicate
-        const text = userInput.value.trim();
-        if (!text) return;
+        const memoryMode = isOverBudget
+            ? `KHẨN: bộ não ${currentBrainSize} ký tự, VƯỢT giới hạn ${targetLength}. BẮT BUỘC cắt giảm:\n- USER_PROFILE: tên + nghề + sở thích chính (tối đa 2 dòng)\n- CURRENT_GOAL: 1 câu hoặc để trống\n- KNOWLEDGE_GRAPH: tối đa 8 từ khóa, xóa hết còn lại\n- SHORT_TERM_LOG: tối đa 3 dòng gần nhất, xóa hết còn lại`
+            : `CẬP NHẬT: còn ${targetLength - currentBrainSize} ký tự trống.\n- Thêm thông tin mới vào đúng section\n- SHORT_TERM_LOG: tối đa 5 dòng gần nhất\n- Khi còn < 200 ký tự: gộp/cắt log cũ chủ động`;
 
-        isSending = true;
-        appendMessage(text, 'user');
-        userInput.value = '';
-        if (!isWTMode) setInputEnabled(false);
-        loading.style.display = 'block';
-        scrollToBottom();
-
-        const selectedModel = modelSelect.value;
-        const useAutoSwitch = autoSwitchToggle.checked;
+        let newSummary    = currentSummary;
+        let memoryUpdated = true;
 
         try {
-            await sendWithFallback(text, selectedModel, useAutoSwitch, new Set());
-        } finally {
-            // FIX: finally đảm bảo luôn restore input dù lỗi
-            loading.style.display = 'none';
-            if (!isWTMode) setInputEnabled(true);
-            isSending = false;
-        }
-    }
-
-    async function sendWithFallback(text, currentModel, autoSwitch, triedModels) {
-        triedModels.add(currentModel);
-
-        try {
-            const limit  = parseInt(memLimitInput.value) || 2000;
-            const hLimit = parseInt(historyLimitInput.value) || 10;
-
-            // FIX: slice trước khi gửi — tránh gửi toàn bộ history qua network
-            const tinyHistory = history.slice(-hLimit);
-
-            const res = await fetch(API_URL, {
+            const memRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    message: text,
-                    history: tinyHistory,
-                    currentSummary: currentSummary,
-                    maxMemoryLength: limit,
-                    historyLimit: hLimit,
-                    model: currentModel
+                    model: targetModel,
+                    temperature: 0.2,
+                    max_tokens: 1024,
+                    messages: [
+                        {
+                            role: "system",
+                            content: `Bạn là Memory Manager. Giới hạn cứng: ${targetLength} ký tự.\n\nTRẠNG THÁI: ${currentBrainSize}/${targetLength} ký tự (${budgetUsedPct}%).\n${memoryMode}\n\nQUY TẮC:\n1. Output PHẢI <= ${targetLength} ký tự.\n2. Ưu tiên: USER_PROFILE > KNOWLEDGE_GRAPH > log gần > log cũ.\n3. CHỈ trả về 4 section, KHÔNG thêm text nào khác.\n\nFORMAT:\n=== USER_PROFILE ===\n=== CURRENT_GOAL ===\n=== KNOWLEDGE_GRAPH ===\n=== SHORT_TERM_LOG ===`
+                        },
+                        {
+                            role: "user",
+                            content: `BỘ NÃO HIỆN TẠI:\n${currentSummary || '(trống)'}${evictedContext}\n\nHỘI THOẠI VỪA XẢY RA:\nUser: "${message}"\nAI: "${aiReplyClean}"\n\nCập nhật bộ não. Output <= ${targetLength} ký tự.`
+                        }
+                    ]
                 })
             });
 
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
+            const memData = await memRes.json();
+            if (memData.error) throw new Error(memData.error.message);
 
-            appendMessage(data.response, 'ai', true);
-
-            // FIX: kiểm tra flag memoryUpdated từ backend
-            if (data.newSummary) {
-                currentSummary = data.newSummary;
-            }
-            if (data.memoryUpdated === false) {
-                showMemoryWarning();
+            const memContent = memData.choices?.[0]?.message?.content?.trim();
+            if (memContent) {
+                newSummary = memContent.length <= targetLength
+                    ? memContent
+                    : memContent.slice(0, targetLength);
             } else {
-                hideMemoryWarning();
+                memoryUpdated = false;
+                console.warn("Memory returned empty, keeping old summary.");
             }
-            updateBrainUI(currentSummary);
-
-            history.push({ role: "user", content: text });
-            history.push({ role: "assistant", content: data.response });
-            saveState();
-
-        } catch (error) {
-            const isOverloaded = error.message.includes("429")
-                || error.message.toLowerCase().includes("over capacity")
-                || error.message.toLowerCase().includes("rate limit");
-
-            if (isOverloaded && autoSwitch) {
-                const nextModel = getNextUntried(currentModel, triedModels);
-                if (nextModel) {
-                    appendSystemMessage(`⚠️ ${currentModel} quá tải → chuyển sang ${nextModel}...`);
-                    modelSelect.value = nextModel;
-                    await sendWithFallback(text, nextModel, true, triedModels);
-                    return;
-                } else {
-                    // FIX: đã thử hết model — không loop vô tận
-                    appendSystemMessage("❌ Tất cả model đều quá tải. Vui lòng thử lại sau.");
-                    return;
-                }
-            }
-
-            // Ném lại để finally trong sendMessage bắt
-            appendSystemMessage("❌ " + error.message);
-        }
-    }
-
-    // FIX: chỉ lấy model chưa thử trong turn này
-    function getNextUntried(curr, tried) {
-        const opts = Array.from(modelSelect.options).map(o => o.value);
-        return opts.find(o => !tried.has(o)) || null;
-    }
-
-    /* ─────────────── APPEND MESSAGE ─────────────── */
-    function sanitize(text) {
-        // FIX: XSS — không dùng innerHTML trực tiếp với nội dung AI
-        const d = document.createElement('div');
-        d.textContent = text;
-        return d.innerHTML; // chỉ escape, không inject HTML lạ
-    }
-
-    function appendMessage(text, sender, parseThink = false, animate = true) {
-        const div = document.createElement('div');
-        div.className = `message ${sender}`;
-
-        if (sender === 'ai' && parseThink) {
-            const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/i);
-            if (thinkMatch) {
-                const thought  = thinkMatch[1].trim();
-                const content  = text.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
-                // reasoning content dùng textContent an toàn
-                const box = document.createElement('div');
-                box.className = 'reasoning-box';
-                box.innerHTML = `
-                    <div class="reasoning-header" onclick="this.parentElement.classList.toggle('open')">
-                        <span class="arrow">▼</span> Quá trình suy luận
-                    </div>
-                    <div class="reasoning-content"></div>
-                `;
-                box.querySelector('.reasoning-content').textContent = thought;
-                div.appendChild(box);
-
-                const contentEl = document.createElement('div');
-                contentEl.innerHTML = sanitize(content).replace(/\n/g, '<br>');
-                div.appendChild(contentEl);
-            } else {
-                div.innerHTML = sanitize(text).replace(/\n/g, '<br>');
-            }
-        } else {
-            div.innerHTML = sanitize(text).replace(/\n/g, '<br>');
+        } catch (memError) {
+            memoryUpdated = false;
+            console.error("Memory update error:", memError.message);
         }
 
-        chatBox.insertBefore(div, loading);
-        if (animate) scrollToBottom();
-    }
+        // ── BƯỚC 3: TRẢ KẾT QUẢ ──────────────────────────────────────────
 
-    function appendSystemMessage(text, type = '') {
-        const div = document.createElement('div');
-        div.className = 'system' + (type ? ' ' + type : '');
-        div.textContent = text;
-        chatBox.insertBefore(div, loading);
-        scrollToBottom();
-    }
-
-    /* ─────────────── TABS ─────────────── */
-    function switchTab(name) {
-        ['chat', 'settings', 'brain'].forEach(t => {
-            document.getElementById(t === 'chat' ? 'chatPanel' : t === 'settings' ? 'settingsPanel' : 'brainPanel').style.display = 'none';
-            document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.remove('active');
+        return res.status(200).json({
+            response: aiReplyRaw,   // Bản gốc có <think> để frontend render collapsible
+            newSummary,
+            memoryUpdated
         });
-        const panelId = name === 'chat' ? 'chatPanel' : name === 'settings' ? 'settingsPanel' : 'brainPanel';
-        document.getElementById(panelId).style.display = 'flex';
-        document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
-    }
 
-    /* ─────────────── BRAIN UI ─────────────── */
-    function updateBrainUI(text) {
-        const len = text ? text.length : 0;
-        currLen.textContent = len + " chars";
-        brainDisplay.textContent = text || "Chưa có dữ liệu...";
-        brainDot.className = 'brain-dot' + (len > 0 ? ' ok' : '');
+    } catch (error) {
+        console.error("API Error:", error);
+        return res.status(500).json({ error: error.message });
     }
-
-    function showMemoryWarning() {
-        brainWarnBanner.classList.add('show');
-        brainDot.className = 'brain-dot warn';
-    }
-
-    function hideMemoryWarning() {
-        brainWarnBanner.classList.remove('show');
-    }
-
-    /* ─────────────── HELPERS ─────────────── */
-    function setInputEnabled(enabled) {
-        userInput.disabled = !enabled;
-        sendBtn.disabled   = !enabled;
-        micBtn.disabled    = !enabled;
-    }
-
-    function scrollToBottom() {
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function resetChat() {
-        if (!confirm("Xóa toàn bộ cuộc trò chuyện?")) return;
-        history = [];
-        currentSummary = "";
-        updateBrainUI("");
-        hideMemoryWarning();
-        localStorage.removeItem('h');
-        localStorage.removeItem('m');
-        chatBox.querySelectorAll('.message, .system').forEach(m => m.remove());
-        showWelcome();
-        switchTab('chat');
-    }
-</script>
-</body>
-</html>
+}
