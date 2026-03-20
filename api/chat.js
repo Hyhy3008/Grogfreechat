@@ -1,34 +1,44 @@
-// File: api/chat.js (FINAL VERSION - FULLY OPTIMIZED)
+// File: api/chat.js
 
 export default async function handler(req, res) {
-    // Chỉ chấp nhận method POST
+    // 1. Chỉ chấp nhận method POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
     // --- CẤU HÌNH API KEYS ---
+    // Key Groq lấy từ biến môi trường Vercel (Bảo mật)
     const GROQ_API_KEY = process.env.GROQ_API_KEY; 
     
-    // 👇👇 THÔNG TIN CLOUDFLARE (Điền cứng của bạn) 👇👇
+    // Key Cloudflare (Điền cứng của bạn)
     const CF_WORKER_URL = "https://muddy-paper-3417.nhatanhd50.workers.dev/"; 
     const CF_API_KEY = "12345678"; 
     // ---------------------------------------------------
 
     try {
-        // Nhận dữ liệu từ Frontend
-        const { message, history, currentSummary, maxMemoryLength, model } = req.body;
+        // 2. Nhận dữ liệu từ Frontend gửi lên
+        const { 
+            message, 
+            history, 
+            currentSummary, 
+            maxMemoryLength, 
+            model,
+            historyLimit // Tham số mới để chỉnh độ dài ngữ cảnh ngắn hạn
+        } = req.body;
         
-        // Cấu hình mặc định nếu thiếu
+        // 3. Thiết lập các giá trị mặc định nếu thiếu
         const targetModel = model || "llama-3.3-70b-versatile";
         const targetLength = maxMemoryLength || 2000;
+        const targetHistoryLimit = historyLimit || 10; // Mặc định nhớ 10 câu gần nhất
 
         // ======================================================
         // BƯỚC 1: GROQ TRẢ LỜI (LOGIC SUY LUẬN + KIẾN THỨC)
         // ======================================================
 
-        // SỬA: Tăng lên 10 câu gần nhất để Groq nhớ ngữ cảnh ngắn hạn tốt hơn (thay vì 2 câu)
-        const tinyHistory = (history || []).slice(-10); 
+        // Cắt lịch sử theo giới hạn người dùng cài đặt
+        const tinyHistory = (history || []).slice(-targetHistoryLimit); 
 
+        // System Prompt: Được tinh chỉnh để AI phân biệt rõ Ký ức và Kiến thức
         const systemPrompt = `
         VAI TRÒ: Trợ lý AI Thông Minh & Chuyên Nghiệp.
 
@@ -68,7 +78,7 @@ export default async function handler(req, res) {
                     ...tinyHistory,
                     { role: "user", content: message }
                 ],
-                // Tăng nhẹ nhiệt độ để AI suy luận sáng tạo hơn, đặc biệt với Qwen
+                // Tăng nhiệt độ lên 0.7 để hỗ trợ tốt cho các model Thinking (Qwen) và sáng tạo hơn
                 temperature: 0.7, 
                 max_tokens: 2048
             })
@@ -76,7 +86,7 @@ export default async function handler(req, res) {
 
         const groqData = await groqRes.json();
         
-        // Kiểm tra lỗi từ Groq (ví dụ sai tên model, rate limit)
+        // Kiểm tra lỗi từ Groq (ví dụ Rate Limit, Over Capacity...)
         if (groqData.error) {
             throw new Error(groqData.error.message); // Ném lỗi để Frontend tự động đổi model
         }
@@ -131,11 +141,12 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 prompt: "Update Compact Memory", 
                 systemPrompt: updateMemoryPrompt, 
-                history: [] 
+                history: [] // Worker tóm tắt không cần history dài
             })
         });
 
         const cfData = await cfRes.json();
+        // Nếu Cloudflare lỗi hoặc trả về rỗng, giữ nguyên bộ nhớ cũ để an toàn
         const newSummary = cfData.response || currentSummary;
 
         // ======================================================
@@ -148,6 +159,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error("API Error:", error);
+        // Trả về lỗi 500 để Frontend bắt được và xử lý Auto Switch
         return res.status(500).json({ error: error.message });
     }
 }
