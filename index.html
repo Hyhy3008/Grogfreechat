@@ -15,77 +15,39 @@
         
         /* HEADER */
         .header { padding: 0 15px; background: rgba(255,255,255,0.95); border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: space-between; height: 60px; flex-shrink: 0; z-index: 10; }
-        .header-title { font-weight: 600; font-size: 18px; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
+        .header-left { font-weight: 600; font-size: 18px; color: var(--text-color); display: flex; align-items: center; gap: 8px; }
         .header-right { display: flex; gap: 10px; }
         .header-btn { background: #f0f2f5; border: none; cursor: pointer; color: #555; font-size: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .header-btn:hover { background: #e4e6eb; color: #000; }
         .header-btn.active { background: var(--success-color); color: white; }
 
-        /* TABS */
+        /* TABS (3 TAB) */
         .tabs { display: flex; background: white; border-bottom: 1px solid #e5e5ea; flex-shrink: 0; }
-        .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.3s; font-size: 13px; }
         .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        .tab-btn i { margin-right: 5px; }
 
         /* CONTENT AREA */
         .content-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* PANEL 1: CHAT */
         #chatPanel { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* --- PANEL MEMORY (ĐÃ SỬA: FLEX DỌC CHUẨN) --- */
+        /* PANEL 2: SETTINGS (Cuộn riêng) */
+        #settingsPanel { height: 100%; padding: 20px; overflow-y: auto; background: #f8f9fa; display: none; }
+
+        /* PANEL 3: MEMORY (FULL SCREEN LOG) */
         #memoryPanel { 
             height: 100%; 
-            background: #fff; 
-            display: none; /* JS sẽ đổi thành flex */
+            display: none; /* Flex khi active */
             flex-direction: column; 
-            overflow: hidden; /* Chặn tràn container cha */
-            padding: 15px;
+            background: #fff; 
+            padding: 0; /* Full viền */
+            overflow: hidden;
         }
 
-        /* KHUNG SETTINGS (CỐ ĐỊNH Ở TRÊN) */
-        .settings-container {
-            flex-shrink: 0; /* Không bị co lại */
-            margin-bottom: 15px;
-        }
-        .settings-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; }
-        
-        /* KHUNG HIỂN THỊ LOG (CHIẾM HẾT PHẦN CÒN LẠI) */
-        .memory-wrapper {
-            flex: 1; /* TỰ ĐỘNG GIÃN KỊCH KIM XUỐNG ĐÁY */
-            display: flex; 
-            flex-direction: column;
-            border: 1px solid #333; /* Viền đậm hơn chút để dễ nhìn */
-            border-radius: 8px;
-            overflow: hidden; 
-            min-height: 0; /* QUAN TRỌNG: Để con cuộn được */
-            background: #1e1e1e; /* Nền đen bao trùm */
-        }
-        
-        .memory-header {
-            background: #333; /* Header màu tối */
-            padding: 10px 15px; 
-            font-weight: bold; font-size: 13px; color: #fff; 
-            border-bottom: 1px solid #444; 
-            display: flex; justify-content: space-between;
-            flex-shrink: 0;
-        }
-        
-        .memory-display { 
-            flex: 1; /* Giãn hết chiều cao wrapper */
-            padding: 15px; 
-            font-family: 'Consolas', 'Courier New', monospace; 
-            font-size: 13px; 
-            line-height: 1.6; 
-            color: #0f0; /* Chữ xanh lá */
-            white-space: pre-wrap; 
-            overflow-y: auto; /* THANH CUỘN NẰM Ở ĐÂY */
-            scroll-behavior: smooth;
-        }
-        
-        /* Tùy chỉnh thanh cuộn cho đẹp */
-        .memory-display::-webkit-scrollbar { width: 8px; }
-        .memory-display::-webkit-scrollbar-track { background: #1e1e1e; }
-        .memory-display::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-
-        /* SETTINGS UI DETAILS */
+        /* --- STYLES CHO SETTINGS --- */
+        .settings-box { background: #fff; border: 1px solid #e5e5ea; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .setting-row { margin-bottom: 15px; }
         .setting-label { display: block; font-weight: 600; font-size: 13px; color: #555; margin-bottom: 5px; }
         select.full-width { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; background: white; font-size: 14px; outline: none; }
@@ -100,6 +62,24 @@
         .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--primary-color); }
         input:checked + .slider:before { transform: translateX(14px); }
+
+        /* --- STYLES CHO MEMORY (Tab 3) --- */
+        .memory-header {
+            background: #eee; padding: 10px 15px; font-weight: bold; font-size: 13px; color: #555; 
+            border-bottom: 1px solid #ddd; flex-shrink: 0; display: flex; justify-content: space-between;
+        }
+        .memory-display { 
+            flex: 1; /* Chiếm toàn bộ chiều cao còn lại */
+            background: #1e1e1e; color: #0f0; 
+            padding: 15px; 
+            font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; 
+            white-space: pre-wrap; 
+            overflow-y: auto; /* Scroll ở đây */
+            padding-bottom: 50px;
+        }
+        .memory-display::-webkit-scrollbar { width: 8px; }
+        .memory-display::-webkit-scrollbar-track { background: #1e1e1e; }
+        .memory-display::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
 
         /* CHAT UI */
         .chat-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-color); display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
@@ -151,9 +131,11 @@
         </div>
     </div>
 
+    <!-- 3 TABS -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
-        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem">🧠 Bộ Nhớ</button>
+        <button class="tab-btn active" onclick="switchTab('chat')" id="tabChat"><i class="fas fa-comments"></i> Chat</button>
+        <button class="tab-btn" onclick="switchTab('settings')" id="tabSet"><i class="fas fa-sliders-h"></i> Cài đặt</button>
+        <button class="tab-btn" onclick="switchTab('memory')" id="tabMem"><i class="fas fa-microchip"></i> Bộ não</button>
     </div>
 
     <div class="content-area">
@@ -163,7 +145,6 @@
                 <div class="message ai">Xin chào! Tôi có thể giúp gì cho bạn hôm nay?</div>
                 <div class="typing" id="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
             </div>
-            
             <div class="input-wrapper">
                 <div class="normal-mode" id="normalInput">
                     <input type="text" id="userInput" class="chat-input" placeholder="Nhập tin nhắn..." autocomplete="off">
@@ -177,57 +158,55 @@
             </div>
         </div>
 
-        <!-- TAB 2: SETTINGS & MEMORY -->
+        <!-- TAB 2: SETTINGS (CÀI ĐẶT) -->
+        <div id="settingsPanel">
+            <div class="settings-box">
+                <div class="toggle-row">
+                    <label class="setting-label" style="margin:0; color:#000;">🔄 Auto Switch (Khi lỗi):</label>
+                    <label class="switch"><input type="checkbox" id="autoSwitchToggle" checked><span class="slider"></span></label>
+                </div>
+                <small style="color:#666; display:block; margin-bottom:15px; font-style:italic;">Nếu bật: Khi lỗi, hệ thống tự chuyển model khác.</small>
+                
+                <div class="setting-row">
+                    <label class="setting-label">🤖 Chọn Model AI:</label>
+                    <select id="modelSelect" class="full-width">
+                        <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh - Ổn định)</option>
+                        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh nhất)</option>
+                        <option value="qwen/qwen3-32b">Qwen 3 32B (Có suy luận)</option>
+                        <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
+                        <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
+                        <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
+                        <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
+                        <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
+                    </select>
+                </div>
+                
+                <div class="setting-row">
+                    <label class="setting-label">📜 Lịch sử ngắn hạn (Tin nhắn):</label>
+                    <div class="limit-input-group">
+                        <input type="number" id="historyLimitInput" value="10" min="2" max="50">
+                        <span>tin</span>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <label class="setting-label">🧠 Giới hạn Bộ nhớ (Ký tự):</label>
+                    <div class="limit-input-group">
+                        <input type="number" id="memLimitInput" value="2000" min="500" step="100">
+                        <span>chars</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: MEMORY (FULL SCREEN LOG) -->
         <div id="memoryPanel">
-            <!-- 1. CÀI ĐẶT (ĐỨNG IM) -->
-            <div class="settings-container">
-                <div class="settings-box">
-                    <div class="toggle-row">
-                        <label class="setting-label" style="margin:0; color:#000;">🔄 Auto Switch (Khi lỗi):</label>
-                        <label class="switch"><input type="checkbox" id="autoSwitchToggle" checked><span class="slider"></span></label>
-                    </div>
-                    
-                    <div class="setting-row">
-                        <label class="setting-label">🤖 Chọn Model:</label>
-                        <select id="modelSelect" class="full-width">
-                            <option value="llama-3.1-8b-instant" selected>Llama 3.1 8B (Nhanh - Ổn định)</option>
-                            <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Thông minh)</option>
-                            <option value="qwen/qwen3-32b">Qwen 3 32B (Có suy luận)</option>
-                            <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Mới)</option>
-                            <option value="moonshotai/kimi-k2-instruct-0905">Moonshot Kimi k2 (0905)</option>
-                            <option value="moonshotai/kimi-k2-instruct">Moonshot Kimi k2 (Gốc)</option>
-                            <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
-                            <option value="openai/gpt-oss-20b">GPT-OSS 20B</option>
-                            <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B</option>
-                        </select>
-                    </div>
-                    
-                    <div class="setting-row">
-                        <label class="setting-label">📜 Lịch sử ngắn hạn (Tin nhắn):</label>
-                        <div class="limit-input-group">
-                            <input type="number" id="historyLimitInput" value="10" min="2" max="50">
-                            <span>tin</span>
-                        </div>
-                    </div>
-
-                    <div class="setting-row">
-                        <label class="setting-label">🧠 Giới hạn Bộ nhớ (Ký tự):</label>
-                        <div class="limit-input-group">
-                            <input type="number" id="memLimitInput" value="2000" min="500" step="100">
-                            <span>chars</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="memory-header">
+                <span>NỘI DUNG NÃO BỘ</span>
+                <span id="currLen" style="font-weight:normal; color:#666;">0 chars</span>
             </div>
-
-            <!-- 2. NỘI DUNG BỘ NHỚ (CHIẾM HẾT & CÓ SCROLL) -->
-            <div class="memory-wrapper">
-                <div class="memory-header">
-                    <span>NỘI DUNG NÃO BỘ</span>
-                    <span id="currLen" style="font-weight:normal; color:#ccc;">0 chars</span>
-                </div>
-                <div id="memoryDisplay" class="memory-display">Chưa có dữ liệu...</div>
-            </div>
+            <div id="memoryDisplay" class="memory-display">Chưa có dữ liệu...</div>
         </div>
     </div>
 </div>
@@ -240,7 +219,7 @@
     const micBtn = document.getElementById('micBtn');
     const loading = document.getElementById('loading');
     
-    // Settings Elements
+    // Tab Elements
     const memoryDisplay = document.getElementById('memoryDisplay');
     const currLen = document.getElementById('currLen');
     const memLimitInput = document.getElementById('memLimitInput');
@@ -348,27 +327,6 @@
         return (idx !== -1 && idx < opts.length - 1) ? opts[idx + 1] : opts[0];
     }
 
-    // --- UI HELPERS (Sửa switchTab cho đúng Flex) ---
-    function switchTab(name) {
-        document.getElementById('chatPanel').style.display = name === 'chat' ? 'flex' : 'none';
-        document.getElementById('memoryPanel').style.display = name === 'chat' ? 'none' : 'flex'; // Dùng Flex để khung log giãn ra
-        document.getElementById('tabChat').className = name === 'chat' ? 'tab-btn active' : 'tab-btn';
-        document.getElementById('tabMem').className = name === 'chat' ? 'tab-btn' : 'tab-btn active';
-    }
-
-    function updateMemoryUI(text) {
-        const len = text ? text.length : 0;
-        currLen.innerText = len + " chars";
-        memoryDisplay.innerText = text || "Chưa có dữ liệu...";
-    }
-
-    function resetChat() {
-        if (!confirm("Xóa toàn bộ?")) return;
-        history = []; currentSummary = ""; updateMemoryUI("");
-        chatBox.querySelectorAll('.message, .system').forEach(m => m.remove());
-        switchTab('chat');
-    }
-
     function appendMessage(text, sender, parseThink = false) {
         const div = document.createElement('div'); div.className = `message ${sender}`;
         if (sender === 'ai' && parseThink) {
@@ -393,6 +351,45 @@
     function appendSystemMessage(text) {
         const div = document.createElement('div'); div.className = 'system'; div.innerText = text;
         chatBox.insertBefore(div, loading); scrollToBottom();
+    }
+
+    // --- SWITCH TABS (3 TAB LOGIC) ---
+    function switchTab(name) {
+        // Ẩn tất cả Panel
+        document.getElementById('chatPanel').style.display = 'none';
+        document.getElementById('settingsPanel').style.display = 'none';
+        document.getElementById('memoryPanel').style.display = 'none';
+        
+        // Bỏ active tất cả nút
+        document.getElementById('tabChat').className = 'tab-btn';
+        document.getElementById('tabSet').className = 'tab-btn';
+        document.getElementById('tabMem').className = 'tab-btn';
+
+        // Hiện Panel được chọn
+        if (name === 'chat') {
+            document.getElementById('chatPanel').style.display = 'flex';
+            document.getElementById('tabChat').classList.add('active');
+        } else if (name === 'settings') {
+            document.getElementById('settingsPanel').style.display = 'block';
+            document.getElementById('tabSet').classList.add('active');
+        } else if (name === 'memory') {
+            document.getElementById('memoryPanel').style.display = 'flex'; // Dùng Flex để giãn full
+            document.getElementById('tabMem').classList.add('active');
+        }
+    }
+
+    function updateMemoryUI(text) {
+        const len = text ? text.length : 0;
+        currLen.innerText = len + " chars";
+        memoryDisplay.innerText = text || "Chưa có dữ liệu...";
+    }
+
+    function resetChat() {
+        if (!confirm("Xóa toàn bộ?")) return;
+        history = []; currentSummary = ""; updateMemoryUI("");
+        chatBox.querySelectorAll('.message, .system').forEach(m => m.remove());
+        appendSystemMessage("Đã reset bộ nhớ.");
+        switchTab('chat');
     }
 
     function toggleInput(enabled) { userInput.disabled = !enabled; sendBtn.disabled = !enabled; }
